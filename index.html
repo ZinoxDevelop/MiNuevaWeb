@@ -1,0 +1,2345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Granja de calabazas</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#140a22;color:#fbe9d0;font-family:system-ui,sans-serif;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+/* Zona de juego (izquierda) */
+#left{position:fixed;left:0;top:0;bottom:0;right:340px;pointer-events:none}
+#news{position:absolute;top:0;left:0;right:0;padding:8px 14px;background:linear-gradient(rgba(10,4,20,.85),rgba(10,4,20,0));font-size:13px;font-style:italic;color:#e6d6f5;text-align:center;transition:opacity .5s}
+#hud{position:absolute;top:40px;left:0;right:0;text-align:center}
+#hCal{font-size:32px;font-weight:800;color:#ffd25a;text-shadow:0 2px 10px rgba(0,0,0,.7),0 0 18px rgba(255,140,40,.35)}
+#hRate{font-size:14px;opacity:.9;text-shadow:0 1px 4px #000}
+#buffs{display:flex;gap:6px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+.buff{background:rgba(255,190,60,.18);border:1px solid #ffbe3c;border-radius:999px;padding:3px 10px;font-size:12px;color:#ffe9a8}
+#menu{position:absolute;left:12px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}
+.mb{background:rgba(20,10,34,.85);border:1px solid #5a3a7a;color:#fbe9d0;border-radius:8px;padding:7px 11px;font:inherit;font-size:13px;cursor:pointer;transition:background .15s,transform .1s}
+.mb:hover{background:#3a1f5a;transform:translateY(-1px)}
+#toasts{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);display:flex;flex-direction:column-reverse;gap:6px;width:min(320px,90%);pointer-events:auto}
+.toast{background:rgba(29,16,40,.95);border:1px solid #ffb257;border-radius:10px;padding:8px 12px;font-size:13px;cursor:pointer;animation:tin .3s ease-out}
+.toast b{display:block;color:#ffd25a;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+@keyframes tin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* Tienda (derecha) */
+#store{position:fixed;right:0;top:0;bottom:0;width:340px;box-sizing:border-box;background:linear-gradient(#2a1a2e,#170d1d);border-left:3px solid #4a2d5e;box-shadow:-6px 0 20px rgba(0,0,0,.4);overflow-y:auto;padding:10px}
+.sh{display:flex;justify-content:space-between;align-items:center;margin:8px 2px 6px;font-size:12px;color:#ffb257;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+#bulk{display:flex;gap:3px}
+#bulk button{background:#2d1b3d;border:1px solid #5a3a7a;color:#c9b6dd;border-radius:6px;padding:2px 7px;font:inherit;font-size:11px;cursor:pointer}
+#bulk button.on{background:#5a3a7a;color:#fff}
+#ups{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;min-height:20px}
+#ups .empty{grid-column:1/-1;font-size:12px;color:#8f7aa5;padding:4px}
+.up{position:relative;aspect-ratio:1;border:2px solid #5a3a7a;border-radius:8px;background:#2d1b3d;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;transition:transform .1s}
+.up canvas{width:80%;height:80%}
+.up:hover{transform:scale(1.07)}
+.up.no{opacity:.4}
+.up.sel{outline:2px solid #ffd25a}
+.row{display:grid;grid-template-columns:44px 1fr auto;gap:8px;align-items:center;margin:4px 0;padding:6px 8px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid #3d2750;cursor:pointer;width:100%;box-sizing:border-box;color:inherit;font:inherit;text-align:left;transition:background .15s,border-color .15s}
+.row:hover{background:rgba(255,178,87,.12);border-color:#ffb257}
+.row.no{opacity:.5}
+.row.mys{opacity:.35;cursor:default;filter:brightness(.3)}
+.row canvas{width:44px;height:44px}
+.row .tx{display:flex;flex-direction:column;min-width:0}
+.row .nm{font-weight:700;font-size:15px}
+.row .sub{font-size:12px;color:#ffd25a}
+.row .sub.cara{color:#ff7a6a}
+.row .cnt{font-size:24px;font-weight:800;color:rgba(255,210,90,.55)}
+
+/* Ayuda flotante */
+#tip{position:fixed;right:350px;width:260px;display:none;background:rgba(18,9,26,.97);border:1px solid #ffb257;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.4;z-index:5;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+#tip h4{margin:0 0 4px;color:#ffd25a;font-size:14px}
+#tip .c{color:#9be37a;font-size:12px}
+#tip .c.no{color:#ff7a6a}
+#tip p{margin:6px 0 0;color:#e6d6f5}
+#tip small{color:#a993bd}
+
+/* Ventana modal */
+#modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,2,10,.65);z-index:10}
+#modal .card{background:#1d1028;border:1px solid #5a3a7a;border-radius:14px;padding:20px;width:min(460px,92vw);max-height:84vh;overflow-y:auto;box-sizing:border-box;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+#modal h3{margin:0 0 10px;color:#ffb257}
+#modal p{margin:6px 0;line-height:1.45;color:#e6d6f5;font-size:14px}
+#modal .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+#modal button{background:#3a1f5a;border:1px solid #8a5ab0;color:#fff;border-radius:8px;padding:8px 14px;font:inherit;cursor:pointer}
+#modal button:disabled{opacity:.45;cursor:default}
+#modal button.danger{background:#5a1f2a;border-color:#b05a6a}
+.lg{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px;margin-top:8px}
+.lg div{aspect-ratio:1;border-radius:8px;border:1px solid #3d2750;background:#24142f;display:flex;align-items:center;justify-content:center;color:#5a4a6a;font-weight:800}
+.lg div.ok{border-color:#ffd25a;background:#3a2410}
+.lg canvas{width:80%;height:80%}
+
+/* Panel central con pasillos, marco de madera */
+#mid{position:fixed;top:0;bottom:0;left:0;width:0;box-sizing:border-box;background:repeating-linear-gradient(90deg,#24123a 0 22px,#2a1644 22px 44px);border-left:10px solid #5a3418;border-right:10px solid #5a3418;box-shadow:inset 0 0 30px rgba(0,0,0,.6);display:flex;flex-direction:column}
+#mid .mtop{height:34px;flex:none;background:linear-gradient(#7a4a22,#4a2a10);border-bottom:3px solid #2a1406;display:flex;align-items:center;justify-content:center;font-weight:800;color:#ffd25a;letter-spacing:.06em;text-shadow:0 2px 0 #2a1406;font-size:14px}
+#lanes{flex:1;overflow-y:auto;overflow-x:hidden}
+.lane{position:relative;border-bottom:6px solid #4a2a10;box-shadow:0 2px 0 #2a1406}
+.lane canvas{display:block}
+.lane .lab{position:absolute;right:6px;top:4px;background:rgba(10,4,20,.75);border:1px solid #5a3418;border-radius:6px;padding:1px 7px;font-size:11px;color:#ffd25a}
+.lempty{padding:20px;text-align:center;color:#a993bd;font-size:13px}
+
+@media (max-width:760px){
+  #mid{display:none}
+  #left{right:0;bottom:46vh}
+  #hud{top:34px}
+  #hCal{font-size:24px}
+  #menu{left:6px;bottom:6px;gap:4px}
+  .mb{padding:5px 8px;font-size:12px}
+  #toasts{bottom:50px}
+  #store{top:auto;left:0;width:100%;height:46vh;border-left:0;border-top:3px solid #4a2d5e}
+  #ups{grid-template-columns:repeat(8,1fr)}
+  #tip{right:8px;left:8px;width:auto;bottom:calc(46vh + 8px);top:auto !important}
+}
+/* ================= Estilo mejorado: tienda, menú y ventanas ================= */
+.coin{display:inline-block;width:14px;height:14px;margin-right:4px;vertical-align:-2px;background:url(img/calabaza.png) center/contain no-repeat;image-rendering:auto}
+
+/* Menú: placas de madera */
+.mb{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(#7a4a22,#4a2a10);border:2px solid #2a1406;box-shadow:inset 0 1px 0 rgba(255,220,160,.35),0 3px 0 #1a0c04;color:#ffe9c4;font-weight:700;text-shadow:0 1px 0 #2a1406;border-radius:9px;padding:7px 12px}
+.mb i{font-style:normal;font-size:15px}
+.mb:hover{background:linear-gradient(#8f5a2a,#5a3418);transform:translateY(-2px)}
+.mb:active{transform:translateY(1px);box-shadow:inset 0 1px 0 rgba(255,220,160,.35),0 1px 0 #1a0c04}
+.mb.snd{width:38px;justify-content:center;padding:7px 0}
+
+/* Tienda */
+#store{background:linear-gradient(#2c1838,#160b1e);border-left:10px solid #5a3418;box-shadow:-8px 0 24px rgba(0,0,0,.5),inset 3px 0 0 #2a1406;padding:0 10px 14px}
+.stitle{position:sticky;top:0;z-index:2;margin:0 -10px 6px;padding:10px;text-align:center;font-size:24px;font-weight:900;letter-spacing:.04em;color:#ffd25a;text-shadow:0 2px 0 #2a1406,0 0 14px rgba(255,160,40,.45);background:linear-gradient(#7a4a22,#4a2a10);border-bottom:4px solid #2a1406}
+.sh{margin:12px 2px 6px;padding-bottom:4px;border-bottom:1px solid rgba(255,178,87,.25)}
+.sh em{font-style:normal;background:#ff8a1f;color:#1a0c04;border-radius:999px;padding:0 7px;margin-left:4px;font-size:11px}
+#bulk button{border-radius:7px;padding:3px 9px;font-weight:700}
+#bulk button.on{background:linear-gradient(#ffb257,#e8650a);color:#1a0c04;border-color:#ffd25a}
+#ups{background:rgba(0,0,0,.25);border:1px solid #3d2750;border-radius:10px;padding:6px}
+.up{border:2px solid var(--tc,#5a3a7a);background:radial-gradient(circle at 50% 35%,#3d2550,#1e1028);box-shadow:inset 0 0 0 1px rgba(0,0,0,.5)}
+.up:not(.no){box-shadow:0 0 8px color-mix(in srgb,var(--tc,#ffd25a) 55%,transparent)}
+.up.look{background:radial-gradient(circle at 50% 35%,#5a4010,#2a1a06)}
+.up.look:not(.no){animation:glowp 1.6s ease-in-out infinite}
+@keyframes glowp{50%{box-shadow:0 0 14px var(--tc,#ffd25a)}}
+.row{position:relative;grid-template-columns:50px 1fr auto;margin:6px 0;padding:6px 10px 6px 6px;border-radius:10px;border:2px solid #2a1406;background:linear-gradient(90deg,#d9c7a4,#b9a37c);color:#2a1406;box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 3px 0 rgba(0,0,0,.35);overflow:hidden}
+.row::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(80,50,20,.05) 0 2px,transparent 2px 5px);pointer-events:none}
+.row .ic{width:50px;height:50px;display:flex;align-items:center;justify-content:center;background:rgba(42,20,6,.15);border-radius:8px}
+.row .ic canvas{width:46px;height:46px;image-rendering:pixelated}
+.row .nm{font-size:16px;font-weight:900;color:#2a1406}
+.row .sub{font-size:13px;font-weight:700;color:#2f6a12}
+.row .sub.cara{color:#a0281a}
+.row .cnt{font-size:30px;font-weight:900;color:rgba(42,20,6,.35)}
+.row:hover{background:linear-gradient(90deg,#efe0bf,#cfb98f);border-color:#2a1406;transform:translateX(-3px)}
+.row.ok{box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 3px 0 rgba(0,0,0,.35),0 0 0 2px rgba(255,210,90,.5)}
+.row.no{opacity:.62}
+.row.mys{opacity:.55;filter:none;background:linear-gradient(90deg,#6a6070,#4a4252)}
+.row.mys .ic canvas{filter:brightness(0) opacity(.75)}
+.row.mys .nm{color:#1e1828}
+.row.bought{animation:bump .25s ease-out}
+@keyframes bump{40%{transform:scale(1.03)}}
+#tip{background:linear-gradient(#2a1838,#170c20);border:2px solid #ffb257;border-radius:12px}
+#tip .c{font-size:13px;font-weight:700}
+#tip .tag{display:inline-block;margin:2px 0 4px;background:#ffd25a;color:#2a1406;border-radius:999px;padding:0 8px;font-size:11px;font-weight:800}
+
+/* Ventanas */
+#modal{backdrop-filter:blur(3px)}
+#modal .card{padding:0;border:3px solid #5a3418;background:linear-gradient(#22122e,#140a1c);border-radius:16px;animation:pop .2s ease-out}
+@keyframes pop{from{transform:scale(.94);opacity:0}}
+.mhead{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(#7a4a22,#4a2a10);border-bottom:3px solid #2a1406}
+#modal .mhead h3{margin:0;color:#ffd25a;font-size:20px;text-shadow:0 2px 0 #2a1406}
+.mx{background:rgba(0,0,0,.3) !important;border:1px solid #2a1406 !important;border-radius:8px !important;width:32px;height:32px;padding:0 !important;color:#ffe9c4 !important;font-size:16px !important}
+#mBody{padding:6px 18px 4px}
+#modal .acts{padding:0 18px 18px;margin-top:8px}
+#modal .acts:empty{display:none}
+#modal button{font-weight:700}
+#modal button.danger{background:linear-gradient(#b03a2a,#7a1e14);border-color:#2a1406}
+.sec{margin:14px 0 6px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#ffb257}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.st{background:rgba(255,255,255,.04);border:1px solid #3d2750;border-radius:10px;padding:7px 9px;display:flex;flex-direction:column;min-width:0}
+.st span{font-size:11px;color:#a993bd}
+.st b{font-size:14px;color:#ffe9c4;overflow-wrap:anywhere}
+.st.big b{font-size:17px;color:#ffd25a}
+.bar{height:10px;background:rgba(0,0,0,.4);border:1px solid #3d2750;border-radius:999px;overflow:hidden;margin:6px 0}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#e8650a,#ffd25a);border-radius:999px}
+.brow{display:grid;grid-template-columns:30px 120px 1fr 40px;gap:8px;align-items:center;font-size:13px}
+.brow .bi canvas{width:28px;height:28px;image-rendering:pixelated}
+.brow .bn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brow .bp{text-align:right;color:#ffd25a;font-weight:700}
+.hint{font-size:13px !important;color:#c9b6dd !important}
+.hero{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:8px}
+.hero b{font-size:36px;color:#ffd25a}
+.pill{background:#ff8a1f;color:#1a0c04;border-radius:999px;padding:2px 10px;font-weight:800;font-size:12px}
+.lginfo{min-height:38px;background:rgba(0,0,0,.3);border:1px solid #3d2750;border-radius:10px;padding:8px 10px;font-size:13px;margin:8px 0}
+.lgsec{margin-bottom:8px}
+.lgh{display:flex;justify-content:space-between;font-size:13px;font-weight:800;color:#ffe9c4;margin-bottom:4px}
+.lgh small{color:#ffd25a}
+.lg{grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:5px;margin-top:0}
+.lg div{cursor:pointer}
+.lg div.ok{box-shadow:0 0 6px rgba(255,210,90,.4)}
+.seeds{display:flex;align-items:center;justify-content:center;gap:14px;margin:12px 0}
+.seeds>div:not(.arrow){display:flex;flex-direction:column;align-items:center;background:rgba(255,255,255,.04);border:1px solid #3d2750;border-radius:12px;padding:10px 16px;min-width:90px}
+.seeds span,.seeds small{font-size:11px;color:#a993bd}
+.seeds b{font-size:28px;color:#ffe9c4}
+.seeds .after{border-color:#9be37a !important}
+.seeds .after b{color:#9be37a}
+.seeds .arrow{font-size:20px;font-weight:900;color:#9be37a}
+.keep{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.keep div{display:flex;flex-direction:column;gap:3px;background:rgba(255,255,255,.04);border:1px solid #3d2750;border-radius:10px;padding:8px 10px;font-size:13px}
+.keep b{color:#ffb257;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:14px}
+.opt input[type=range]{width:50%;accent-color:#ff8a1f}
+.tog{min-width:110px;background:#3a2a44 !important}
+.tog.on{background:linear-gradient(#ffb257,#e8650a) !important;color:#1a0c04 !important;border-color:#ffd25a !important}
+.row2{display:flex;gap:6px;flex-wrap:wrap}
+#oCode{width:100%;box-sizing:border-box;height:60px;margin-top:8px;background:#0e0614;color:#e6d6f5;border:1px solid #3d2750;border-radius:8px;padding:6px;font:12px monospace;resize:vertical}
+@media (max-width:760px){
+  .mb span{display:none}
+  .mb{padding:6px 9px}
+  .grid{grid-template-columns:repeat(2,1fr)}
+  .brow{grid-template-columns:28px 1fr 60px 36px}
+}
+/* Autoguardado */
+#saved{position:absolute;right:12px;bottom:14px;background:rgba(20,10,34,.85);border:1px solid #5a3a7a;border-radius:999px;padding:4px 10px;font-size:12px;color:#9be37a;opacity:0;transform:translateY(6px);transition:opacity .3s,transform .3s}
+#saved.show{opacity:1;transform:none}
+.mb.has{animation:hasp 1.4s ease-in-out infinite}
+@keyframes hasp{50%{box-shadow:inset 0 1px 0 rgba(255,220,160,.35),0 3px 0 #1a0c04,0 0 14px #9be37a}}
+
+/* Árbol de renacer */
+#modal .card[data-kind=tree]{width:min(760px,96vw)}
+.treehead{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.treehead div{background:rgba(255,255,255,.04);border:1px solid #3d2750;border-radius:10px;padding:7px 10px;display:flex;flex-direction:column}
+.treehead span{font-size:11px;color:#a993bd}
+.treehead b{font-size:18px;color:#9be37a}
+.treewrap{overflow:auto;max-height:52vh;margin-top:8px;border:2px solid #2a1406;border-radius:12px;background:radial-gradient(circle at 50% 0%,#2a1a3a,#0e0614)}
+.tree{position:relative;margin:0 auto}
+.tree svg{position:absolute;inset:0}
+.tree line{stroke:#3d2750;stroke-width:4;stroke-linecap:round}
+.tree line.open{stroke:#7a5a9a;stroke-dasharray:6 6}
+.tree line.on{stroke:#9be37a;filter:drop-shadow(0 0 4px #9be37a)}
+.node{position:absolute;width:56px;height:56px;border-radius:14px;border:3px solid #3d2750;background:#1e1028;padding:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .12s}
+.node canvas{width:42px;height:42px;image-rendering:pixelated}
+.node:hover{transform:scale(1.1)}
+.node.lock{filter:grayscale(1) brightness(.45)}
+.node.open{border-color:#7a5a9a}
+.node.can{border-color:#9be37a;box-shadow:0 0 12px rgba(155,227,122,.6);animation:hasp2 1.3s ease-in-out infinite}
+@keyframes hasp2{50%{box-shadow:0 0 20px rgba(155,227,122,.9)}}
+.node.own{border-color:#ffd25a;background:radial-gradient(circle,#5a4010,#2a1a06);box-shadow:0 0 10px rgba(255,210,90,.55)}
+.node em{position:absolute;right:-6px;top:-6px;background:#9be37a;color:#1a0c04;font-style:normal;font-weight:900;font-size:11px;border-radius:999px;padding:0 6px;border:2px solid #1a0c04}
+.skinfo{margin:10px 0 4px;min-height:60px;background:rgba(0,0,0,.3);border:1px solid #3d2750;border-radius:10px;padding:10px 12px;font-size:13px}
+.skinfo p{margin:4px 0 6px !important}
+.skinfo .ok{color:#9be37a;font-weight:700}
+.skinfo .no{color:#ff9a8a;font-weight:700}
+.skinfo button{display:block;margin-top:8px}
+
+/* ================= Cartel de madera del panel central ================= */
+#mid{border-left:0;border-right:0}
+#mid::before,#mid::after{content:'';position:absolute;top:0;bottom:0;width:12px;z-index:3;pointer-events:none;
+  background:repeating-linear-gradient(90deg,#6b3f1d 0 2px,#5a3418 2px 5px,#7a4a22 5px 7px,#4a2a10 7px 9px,#6b3f1d 9px 12px);
+  box-shadow:0 0 10px rgba(0,0,0,.7)}
+#mid::before{left:0}
+#mid::after{right:0}
+.mhead2{position:relative;flex:none;height:100px;display:grid;grid-template-columns:128px 1fr 128px;
+  background:linear-gradient(rgba(10,4,20,.55),rgba(10,4,20,.2)),repeating-linear-gradient(90deg,#24123a 0 22px,#2a1644 22px 44px)}
+#mid.nonews .mhead2{grid-template-columns:1fr 1fr}
+#mid.nonews .newsbox{display:none}
+/* Postes de madera a los lados */
+.post{position:relative;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;padding:12px 0 6px;
+  background:linear-gradient(90deg,rgba(0,0,0,.45),transparent 18%,transparent 82%,rgba(0,0,0,.45)),
+    repeating-linear-gradient(90deg,#6b3f1d 0 3px,#5a3418 3px 7px,#7a4a22 7px 9px,#4f2d12 9px 13px,#6b3f1d 13px 16px);
+  box-shadow:inset 0 -6px 10px rgba(0,0,0,.4)}
+#postL{border-right:3px solid #2a1406}
+#postR{border-left:3px solid #2a1406}
+/* Viga horizontal con clavos */
+.beam{position:relative;flex:none;height:22px;z-index:2;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(rgba(255,220,160,.18),transparent 30%,rgba(0,0,0,.35)),
+    repeating-linear-gradient(180deg,#7a4a22 0 2px,#5a3418 2px 5px,#6b3f1d 5px 7px,#4f2d12 7px 9px);
+  border-top:2px solid #2a1406;border-bottom:3px solid #1a0c04;box-shadow:0 6px 12px rgba(0,0,0,.6)}
+.beam::before,.beam::after{content:'';position:absolute;top:7px;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#d8d0c0,#5a5048);box-shadow:0 1px 0 #1a0c04}
+.beam::before{left:22px}
+.beam::after{right:22px}
+.plaque{position:relative;top:9px;padding:3px 16px;font:900 13px Georgia,'Times New Roman',serif;letter-spacing:.06em;color:#ffd25a;
+  text-shadow:0 1px 0 #1a0c04,0 0 8px rgba(255,160,40,.5);
+  background:repeating-linear-gradient(180deg,#8a5a2a 0 2px,#76491f 2px 4px);border:2px solid #2a1406;border-radius:6px;box-shadow:0 3px 0 #1a0c04,inset 0 1px 0 rgba(255,220,160,.35)}
+/* Noticias en el centro del cartel */
+.newsbox{display:flex;align-items:center;justify-content:center;padding:0 12px;overflow:hidden}
+#news.innews{position:static;background:none;padding:0;font:700 14px/1.35 Georgia,'Times New Roman',serif;font-style:normal;color:#fbefd8;
+  text-shadow:0 2px 0 #0a0410,0 0 10px rgba(255,170,80,.25);text-align:center}
+/* Carteles colgados (botones) */
+.sign{position:relative;width:110px;height:26px;padding:0 6px;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;
+  font:700 13px Georgia,'Times New Roman',serif;color:#f3dfb8;text-shadow:0 1px 0 #1a0c04;
+  background:linear-gradient(rgba(255,220,160,.22),transparent 45%,rgba(0,0,0,.25)),repeating-linear-gradient(180deg,#8f5e2d 0 2px,#7a4c22 2px 4px,#86562a 4px 5px);
+  border:2px solid #2a1406;border-radius:5px;box-shadow:0 3px 0 #1a0c04,inset 0 1px 0 rgba(255,230,180,.35);
+  transform-origin:50% -6px;transition:transform .15s,box-shadow .2s,color .2s}
+.sign::before,.sign::after{content:'';position:absolute;top:50%;width:5px;height:5px;margin-top:-2.5px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#e0d8c8,#5a5048);box-shadow:0 1px 0 #1a0c04}
+.sign::before{left:4px}
+.sign::after{right:4px}
+.sign i{font-style:normal;font-size:12px;filter:drop-shadow(0 1px 0 #1a0c04)}
+.sign:nth-child(odd){transform:rotate(-1.2deg)}
+.sign:nth-child(even){transform:rotate(1deg)}
+.sign:hover{color:#ffd25a;box-shadow:0 3px 0 #1a0c04,inset 0 1px 0 rgba(255,230,180,.35),0 0 14px rgba(255,160,40,.55);animation:swing .6s ease-in-out}
+.sign:active{transform:translateY(2px) rotate(0);box-shadow:0 1px 0 #1a0c04,inset 0 1px 0 rgba(255,230,180,.35)}
+.sign:focus-visible{outline:2px solid #ffd25a;outline-offset:2px}
+.sign.has{color:#c8ffb0;box-shadow:0 3px 0 #1a0c04,0 0 14px rgba(155,227,122,.75);animation:hasp3 1.4s ease-in-out infinite}
+@keyframes swing{0%{transform:rotate(0)}25%{transform:rotate(-4deg)}55%{transform:rotate(3deg)}80%{transform:rotate(-1.5deg)}100%{transform:rotate(0)}}
+@keyframes hasp3{50%{box-shadow:0 3px 0 #1a0c04,0 0 22px rgba(155,227,122,1)}}
+/* Farolillo encendido en cada poste */
+.post::after{content:'';position:absolute;top:2px;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#ffb43a;box-shadow:0 0 10px 3px rgba(255,170,60,.55);animation:flick 2.6s ease-in-out infinite}
+@keyframes flick{40%{opacity:.75}55%{opacity:1}70%{opacity:.85}}
+
+/* ================= Árbol a pantalla completa ================= */
+#treeFs{position:fixed;inset:0;z-index:30;display:none;overflow:hidden;cursor:grab;touch-action:none;
+  background:
+    radial-gradient(1.5px 1.5px at 40px 50px,#fff 50%,transparent),
+    radial-gradient(1px 1px at 120px 30px,#d8c4ff 50%,transparent),
+    radial-gradient(ellipse at 50% 40%,#2a1240 0%,#12061e 55%,#06020a 100%);
+  background-size:150px 130px,230px 190px,100% 100%}
+#treeFs.open{display:block;animation:tfin .35s ease-out}
+@keyframes tfin{from{opacity:0;transform:scale(1.04)}}
+#treeFs:active{cursor:grabbing}
+#tWorld{position:absolute;left:0;top:0;width:0;height:0;will-change:transform}
+#tLines{position:absolute;width:1400px;height:1200px;overflow:visible;pointer-events:none}
+#tLines line{stroke:#3d2750;stroke-width:5;stroke-linecap:round}
+#tLines line.open{stroke:#8a6ab0;stroke-dasharray:8 8;animation:dash 1.2s linear infinite}
+#tLines line.on{stroke:#9be37a;filter:drop-shadow(0 0 6px #9be37a)}
+@keyframes dash{to{stroke-dashoffset:-16}}
+.tnode{position:absolute;width:76px;height:76px;border-radius:18px;border:3px solid #3d2750;background:radial-gradient(circle at 50% 35%,#2e1a40,#140a1c);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;padding:6px;transform:translate(-50%,-50%);will-change:opacity,transform}
+.tnode canvas{width:56px;height:56px;image-rendering:pixelated}
+.tnode .tl{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:6px;white-space:nowrap;font:700 12px Georgia,serif;color:#e6d6f5;text-shadow:0 2px 0 #06020a}
+.tnode.lock{filter:grayscale(1) brightness(.5)}
+.tnode.open{border-color:#8a6ab0}
+.tnode.can{border-color:#9be37a;box-shadow:0 0 18px rgba(155,227,122,.7)}
+.tnode.can .tl{color:#c8ffb0}
+.tnode.own{border-color:#ffd25a;background:radial-gradient(circle,#6a4a14,#2a1a06);box-shadow:0 0 18px rgba(255,210,90,.6)}
+.tnode.own .tl{color:#ffd25a}
+.tnode em{position:absolute;right:-8px;top:-8px;background:#9be37a;color:#1a0c04;font-style:normal;font-weight:900;font-size:12px;border-radius:999px;padding:1px 7px;border:2px solid #1a0c04}
+.tnode:hover{border-color:#fff}
+.tVig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 28%,rgba(6,2,10,.55) 60%,rgba(6,2,10,.97) 92%)}
+.tHead{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:14px;padding:10px 16px;
+  background:linear-gradient(rgba(255,220,160,.12),transparent 40%,rgba(0,0,0,.3)),repeating-linear-gradient(180deg,#7a4a22 0 2px,#5a3418 2px 5px,#6b3f1d 5px 7px,#4f2d12 7px 9px);
+  border-bottom:3px solid #1a0c04;box-shadow:0 6px 16px rgba(0,0,0,.6);cursor:default}
+.tTitle{font:900 22px Georgia,serif;color:#ffd25a;text-shadow:0 2px 0 #1a0c04,0 0 12px rgba(255,160,40,.5);white-space:nowrap}
+.tStats{display:flex;gap:8px;flex:1;justify-content:center;flex-wrap:wrap}
+.tStats div{background:rgba(0,0,0,.35);border:1px solid #2a1406;border-radius:8px;padding:3px 10px;display:flex;flex-direction:column;align-items:center}
+.tStats span{font-size:10px;color:#e6d0a8}
+.tStats b{font-size:15px;color:#9be37a}
+.tClose{position:relative;width:auto;padding:0 14px}
+.tHint{position:absolute;top:70px;left:50%;transform:translateX(-50%);font-size:12px;color:#a993bd;text-shadow:0 1px 0 #000;white-space:nowrap;cursor:default}
+.tInfo{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:min(480px,92vw);box-sizing:border-box;margin:0;
+  background:linear-gradient(#22122e,#140a1c);border:3px solid #5a3418;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.7);cursor:default}
+.tInfo button{background:linear-gradient(#ffb257,#e8650a);border:2px solid #2a1406;color:#1a0c04;border-radius:8px;padding:7px 16px;font-weight:800;font-size:13px;cursor:pointer}
+.tInfo button:disabled{opacity:.5;cursor:default}
+@media (max-width:760px){
+  .tHead{flex-wrap:wrap;gap:6px;padding:8px}
+  .tTitle{font-size:17px}
+  .tHint{display:none}
+}
+
+.tMiniBox{position:absolute;right:16px;bottom:18px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;background:linear-gradient(#22122e,#140a1c);border:3px solid #5a3418;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.6);cursor:default}
+#tMini{width:190px;height:150px;cursor:crosshair;border-radius:6px;background:rgba(0,0,0,.35)}
+.tnode .tl{white-space:normal;width:150px;text-align:center;line-height:1.15}
+@media (max-width:760px){.tMiniBox{display:none}}
+@media (max-width:1100px){.tInfo{left:16px;transform:none;width:min(420px,calc(100vw - 260px))}}
+
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="left">
+  <div id="news"></div>
+  <div id="hud">
+    <div id="hCal">0 calabazas</div>
+    <div id="hRate">por segundo: 0</div>
+    <div id="buffs"></div>
+  </div>
+  <div id="saved">💾 Guardado</div>
+  <div id="toasts"></div>
+  <div id="menu">
+    <button class="mb" id="btnStats"><i>📊</i><span>Estadísticas</span></button>
+    <button class="mb" id="btnLog"><i>🏆</i><span>Logros</span></button>
+    <button class="mb" id="btnRen"><i>🌱</i><span>Renacer</span></button>
+    <button class="mb" id="btnTree"><i>🌳</i><span>Árbol</span></button>
+    <button class="mb" id="btnOpt"><i>⚙</i><span>Opciones</span></button>
+    <button class="mb snd" id="btnMute" aria-label="Sonido"><i>🔊</i><span>Sonido</span></button>
+  </div>
+</div>
+
+<div id="mid">
+  <div class="mhead2">
+    <div class="post" id="postL"></div>
+    <div class="newsbox" id="newsBox"></div>
+    <div class="post" id="postR"></div>
+  </div>
+  <div class="beam"><span class="plaque">Tu granja</span></div>
+  <div id="lanes"></div>
+</div>
+
+<aside id="store">
+  <div class="stitle">Tienda</div>
+  <div class="sh"><span>Mejoras <em id="upsN"></em></span></div>
+  <div id="ups"></div>
+  <div class="sh"><span>Edificios</span>
+    <span id="bulk"><button data-n="1" class="on">x1</button><button data-n="10">x10</button><button data-n="100">x100</button></span>
+  </div>
+  <div id="bld"></div>
+</aside>
+
+<div id="tip"></div>
+
+<div id="modal">
+  <div class="card">
+    <div class="mhead"><h3 id="mTitle"></h3><button class="mx" id="mX" aria-label="Cerrar">✕</button></div>
+    <div id="mBody"></div>
+    <div class="acts" id="mActs"></div>
+  </div>
+</div>
+
+<div id="treeFs" aria-hidden="true">
+  <div id="tWorld"><svg id="tLines"></svg><div id="tNodes"></div></div>
+  <div class="tVig"></div>
+  <div class="tHead tfui">
+    <div class="tTitle">Árbol de renacer</div>
+    <div class="tStats" id="tStats"></div>
+    <button class="sign tClose" id="tClose"><i>↩</i><span>Volver</span></button>
+  </div>
+  <div class="tHint tfui">Mueve el ratón hacia un borde para avanzar · arrastra para moverte · Esc para salir</div>
+  <div id="skInfo" class="skinfo tInfo tfui">Pulsa una rama para ver qué hace.</div>
+  <div class="tMiniBox tfui"><canvas id="tMini" aria-label="Mapa del árbol"></canvas><button class="sign" id="tHome"><i>⌂</i><span>Centro</span></button></div>
+</div>
+
+<script>
+'use strict';
+// ================= Configuración =================
+const KEY = 'granja-calabazas-v2';
+const OLD_KEY = 'granja-calabazas-v1';
+const REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const $ = id => document.getElementById(id);
+const UNITS = [[1e60,'decillones'],[1e57,'mil nonillones'],[1e54,'nonillones'],[1e51,'mil octillones'],[1e48,'octillones'],[1e45,'mil septillones'],[1e42,'septillones'],[1e39,'mil sextillones'],[1e36,'sextillones'],[1e33,'mil quintillones'],[1e30,'quintillones'],[1e27,'mil cuatrillones'],[1e24,'cuatrillones'],[1e21,'mil trillones'],[1e18,'trillones'],[1e15,'mil billones'],[1e12,'billones'],[1e9,'mil millones'],[1e6,'millones']];
+const cv = $('c');
+const ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+// Ruido determinista: cada figura tiene siempre la misma forma
+function rnd(s){ const x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+// ================= Datos del juego =================
+const BUILD = [
+  {id:'espantapajaros', nombre:'Espantapájaros', base:15, prod:0, clic:1, desc:'Rodea tu calabaza y la golpea contigo: cada uno suma +1 calabaza a cada clic.'},
+  {id:'campo', nombre:'Campo', base:100, prod:1, desc:'Un trozo de tierra que da calabazas por sí solo.'},
+  {id:'granja', nombre:'Granja', base:1100, prod:8, desc:'Un granjero cuida las calabazas por ti.'},
+  {id:'invernadero', nombre:'Invernadero', base:12000, prod:47, desc:'Calabazas que crecen incluso en pleno invierno.'},
+  {id:'molino', nombre:'Molino', base:130000, prod:260, desc:'Muele la niebla de la noche y saca calabazas.'},
+  {id:'caldero', nombre:'Caldero', base:1.4e6, prod:1400, desc:'Una bruja cocina calabazas de la nada.'},
+  {id:'cementerio', nombre:'Cementerio', base:2e7, prod:7800, desc:'Los muertos también saben sembrar.'},
+  {id:'portal', nombre:'Portal', base:3.3e8, prod:44000, desc:'Trae calabazas de otras dimensiones.'},
+];
+// ---------- Avance infinito ----------
+// Edificios nuevos sin fin: cuando tienes el último, aparece el siguiente.
+// Cada uno cuesta ~15 veces más y produce ~6,5 veces más que el anterior.
+const GEN_NAMES = [
+  ['Torre de brujas', 'Cien escobas barren calabazas hacia tu granja.'],
+  ['Mansión encantada', 'Los fantasmas de la casa trabajan sin descanso.'],
+  ['Bosque oscuro', 'Entre los árboles crecen calabazas que nadie plantó.'],
+  ['Barco fantasma', 'Navega por la niebla con la bodega llena.'],
+  ['Castillo vampiro', 'El conde paga sus deudas en calabazas.'],
+  ['Cripta antigua', 'Bajo tierra hay más calabazas que huesos.'],
+  ['Laboratorio loco', 'Calabazas clonadas, con rayos y todo.'],
+  ['Luna embrujada', 'La luna entera se ha vuelto naranja.'],
+  ['Nebulosa naranja', 'Polvo de estrellas con sabor a calabaza.'],
+  ['Agujero negro', 'Lo que entra no sale. Salvo calabazas.'],
+  ['Multiverso calabaza', 'Infinitas granjas, una sola dueña: tú.'],
+];
+const GEN_SHAPES = ['campo', 'granja', 'invernadero', 'molino', 'caldero', 'cementerio', 'portal'];
+BUILD.forEach(b => { b.spr = b.id; b.hue = 0; });
+function roman(n){
+  if (n >= 4000) return String(n);
+  const R = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+  let s = '';
+  for (const [v, r] of R) while (n >= v){ s += r; n -= v; }
+  return s;
+}
+const FIXED_N = BUILD.length;
+function genBuilding(j){
+  // j = 1 es el primero después del Portal
+  const last = BUILD[FIXED_N - 1];
+  const [nm, desc] = GEN_NAMES[(j - 1) % GEN_NAMES.length];
+  const vuelta = Math.floor((j - 1) / GEN_NAMES.length);
+  return {
+    id: 'gen' + j, nombre: vuelta ? nm + ' ' + roman(vuelta + 1) : nm, desc,
+    base: last.base * Math.pow(15, j), prod: last.prod * Math.pow(6.5, j),
+    spr: GEN_SHAPES[(j - 1) % GEN_SHAPES.length], hue: (35 + j * 47) % 360
+  };
+}
+// Añade el siguiente edificio cuando ya se puede ver el último
+function ensureBuildings(){
+  let added = false;
+  for (let guard = 0; guard < 5; guard++){
+    const last = BUILD[BUILD.length - 1];
+    if (!(S.n[last.id] > 0 || S.total >= last.base * 0.5)) break;
+    const nb = genBuilding(BUILD.length - FIXED_N + 1);
+    if (!isFinite(nb.base) || nb.base > 1e300) break;
+    BUILD.push(nb);
+    if (!(nb.id in S.n)) S.n[nb.id] = 0;
+    if (typeof addRow === 'function' && $('bld').children.length) addRow(nb);
+    added = true;
+  }
+  return added;
+}
+
+// Mejoras de edificio: niveles sin fin (1, 5, 25, 50, 100, 150, 200...)
+const TIERS = [1, 5, 25, 50, 100];
+const TIER_COST = [10, 50, 500, 50000, 5e6];
+const TIER_NAME = ['Herramientas nuevas', 'Abono de luna', 'Riego de niebla', 'Hechizo de cosecha', 'Bendición de la Reina Calabaza'];
+const TIER_COLOR = ['#8a6a4a', '#b0b0c0', '#ffd25a', '#9be37a', '#c77dff', '#ff7a6a', '#6ad8ff'];
+function tierCount(k){ return k < 5 ? TIERS[k] : 100 + 50 * (k - 4); }
+function tierCost(k){ return k < 5 ? TIER_COST[k] : TIER_COST[4] * Math.pow(1000, k - 4); }
+function tierName(k){ return k < 5 ? TIER_NAME[k] : TIER_NAME[4] + ' ' + roman(k - 3); }
+function tierColor(k){ return TIER_COLOR[Math.min(k, TIER_COLOR.length - 1)]; }
+function ownedTiers(b){ let k = 0; while (S.up[b.id + '_' + k]) k++; return k; }
+// Mejoras de aspecto: cada 50 edificios (50, 100, 150...) cambia su dibujo y produce el doble
+function ownedLooks(b){ let k = 0; while (S.up['v_' + b.id + '_' + k]) k++; return k; }
+function lookCost(b, k){ return b.base * 2e4 * Math.pow(400, k); }
+
+// Cadenas de mejoras sin fin: cuchillos (x2 clic), manos (+1 % por segundo al clic) y velas (+1 % por logro)
+const CHAINS = {
+  c: {nombres:['Cuchillo afilado','Cuchillo de plata','Cuchillo encantado'], icono:'clic',
+      coste: k => k < 3 ? [100, 500, 10000][k] : 1e4 * Math.pow(20, k - 2),
+      desc: () => 'El clic cosecha el doble.', unlocked: (k, c) => S.total >= c * 0.5},
+  d: {nombres:['Dedos fantasma','Garra de bruja','Mano del más allá'], icono:'clic',
+      coste: k => 5e4 * Math.pow(100, k),
+      desc: () => 'Cada clic suma además otro 1 % de tu producción por segundo.', unlocked: (k, c) => S.total >= c * 0.4},
+  k: {nombres:['Velas de cera','Farolillos de calabaza'], icono:'vela',
+      coste: k => 9e5 * Math.pow(100, k),
+      desc: () => 'Cada logro da un 1 % más de producción.', unlocked: k => nLogros() >= 10 + 15 * k},
+};
+function ownedChain(p){ let k = 0; while (S.up[p + (k + 1)]) k++; return k; }
+const STATIC_UPS = [
+  {id:'g1', nombre:'Suerte de bruja', coste:777777, icono:'oro', tier:2, desc:'Las calabazas doradas salen el doble de a menudo.', unlocked:() => S.goldClicks >= 7},
+  {id:'g2', nombre:'Oro duradero', coste:7777777, icono:'oro', tier:3, desc:'Los efectos dorados duran el doble.', unlocked:() => S.goldClicks >= 27},
+];
+const UPCACHE = {};
+function cached(id, make){ return UPCACHE[id] || (UPCACHE[id] = make()); }
+// Lista de mejoras que se pueden comprar ahora (solo el siguiente nivel de cada cadena)
+function availableUps(){
+  const list = [];
+  for (const b of BUILD){
+    const k = ownedTiers(b);
+    if (S.n[b.id] >= tierCount(k)) list.push(cached(b.id + '_' + k, () => ({
+      id: b.id + '_' + k, nombre: tierName(k) + ' (' + b.nombre + ')', coste: b.base * tierCost(k),
+      icono: b.spr, hue: b.hue, tier: k,
+      desc: b.clic ? 'Los espantapájaros suman el doble a cada clic.' : b.nombre + ' produce el doble.',
+    })));
+    const v = ownedLooks(b);
+    if (S.n[b.id] >= 50 * (v + 1)){
+      const L = lookDef(v + 1);
+      list.push(cached('v_' + b.id + '_' + v, () => ({
+        id: 'v_' + b.id + '_' + v, nombre: 'Aspecto ' + L.nombre.toLowerCase() + ' (' + b.nombre + ')', coste: lookCost(b, v),
+        icono: b.spr, hue: b.hue, look: v + 1, badge: L.spark || '#ffd25a',
+        desc: 'Cambia el dibujo de ' + b.nombre.toLowerCase() + ' a ' + L.nombre.toLowerCase() + '. Además, ' +
+          (b.clic ? 'los espantapájaros suman el doble a cada clic.' : 'produce el doble.'),
+      })));
+    }
+  }
+  for (const p in CHAINS){
+    const ch = CHAINS[p], k = ownedChain(p), c = ch.coste(k);
+    if (ch.unlocked(k, c)) list.push(cached(p + (k + 1), () => ({
+      id: p + (k + 1), nombre: k < ch.nombres.length ? ch.nombres[k] : ch.nombres[ch.nombres.length - 1] + ' ' + roman(k - ch.nombres.length + 2),
+      coste: c, icono: ch.icono, tier: Math.min(k, 6), desc: ch.desc(k),
+    })));
+  }
+  for (const u of STATIC_UPS) if (!S.up[u.id] && u.unlocked()) list.push(u);
+  return list.sort((p, q) => p.coste - q.coste);
+}
+
+// Logros sin fin: cada categoría tiene un umbral que sigue subiendo
+const LOGRO_CATS = [
+  {p:'cl', val:() => S.clicks, thr:k => k === 0 ? 1 : k === 1 ? 100 : Math.pow(10, k + 1),
+   names:['Primer corte','Mano rápida','Tendinitis de calabaza','Dedo de acero'], gen:'Dedo legendario',
+   desc:v => 'Haz ' + fmt(v) + ' clics.'},
+  {p:'to', val:() => S.total, thr:k => k < 4 ? Math.pow(10, 3 + 2 * k) : Math.pow(10, 12 + 3 * (k - 4)),
+   names:['Huerto pequeño','Cosecha seria','Mar de calabazas','Imperio naranja','Planeta calabaza','Galaxia calabaza'], gen:'Universo calabaza',
+   desc:v => 'Cosecha ' + fmt(v) + ' calabazas en total.'},
+  {p:'ra', val:() => rate(true), thr:k => Math.pow(10, 1 + 2 * k),
+   names:['Va solo','Fábrica nocturna','Torrente naranja','Tormenta de calabazas'], gen:'Huracán naranja',
+   desc:v => 'Produce ' + fmt(v) + ' calabazas por segundo.'},
+  {p:'go', val:() => S.goldClicks, thr:k => k < 3 ? [1, 7, 27][k] : 27 + 50 * (k - 2),
+   names:['Brillo dorado','Cazador de oro','Rey Midas'], gen:'Lluvia de oro',
+   desc:v => 'Pulsa ' + fmt(v) + ' calabazas doradas.'},
+  {p:'re', val:() => S.renaces, thr:k => k === 0 ? 1 : 5 * Math.pow(2, k - 1),
+   names:['Volver a empezar','Ciclo eterno'], gen:'Rueda sin fin',
+   desc:v => 'Renace ' + fmt(v) + (v === 1 ? ' vez.' : ' veces.')},
+  {p:'up', val:() => Object.keys(S.up).length, thr:k => k === 0 ? 10 : k === 1 ? 25 : 50 * (k - 1),
+   names:['Coleccionista','Experto'], gen:'Gran maestro',
+   desc:v => 'Compra ' + fmt(v) + ' mejoras.'},
+];
+// Logros por edificio: 1, 50, 100, 150... de cada uno
+function bThr(k){ return k === 0 ? 1 : 50 * k; }
+function logroCats(){
+  const cats = LOGRO_CATS.map(c => ({
+    p: c.p, title: LOGRO_TITLES[c.p], id: k => c.p + k, val: c.val, thr: c.thr, desc: c.desc,
+    nombre: k => k < c.names.length ? c.names[k] : c.gen + ' ' + roman(k - c.names.length + 1),
+  }));
+  for (const b of BUILD) cats.push({
+    p: 'b', title: b.nombre, id: k => 'b' + bThr(k) + '_' + b.id, val: () => S.n[b.id] || 0, thr: bThr,
+    desc: v => 'Ten ' + fmt(v) + ' de ' + b.nombre.toLowerCase() + '.',
+    nombre: k => b.nombre + ' ' + roman(k + 1),
+  });
+  return cats;
+}
+function logroDone(c){ let k = 0; while (S.logros[c.id(k)]) k++; return k; }
+
+const NEWS = [
+  () => 'Un granjero jura que su calabaza le guiñó un ojo.',
+  () => 'Los cuervos exigen mejores condiciones al espantapájaros.',
+  () => 'Científicos confirman: las calabazas brillan más en octubre.',
+  () => 'Una bruja pide la receta de tu abono. Te niegas.',
+  () => 'Récord local: alguien talló 300 caras en una sola noche.',
+  () => 'Se ha visto un murciélago llevando una calabaza diminuta.',
+  () => S.n.molino > 0 && 'El molino gira aunque no haya viento. Nadie pregunta.',
+  () => S.n.caldero > 0 && 'El caldero burbujea: huele a canela y a misterio.',
+  () => S.n.cementerio > 0 && 'Los vecinos se quejan: los zombis cosechan con demasiado entusiasmo.',
+  () => S.n.portal > 0 && 'Llegan calabazas de otra dimensión. Algunas tienen tres ojos.',
+  () => S.total > 1e9 && 'La economía mundial ya se mide en calabazas.',
+  () => S.renaces > 0 && 'Dicen que ya has vivido esta cosecha antes.',
+  () => S.goldClicks > 0 && 'Avistada otra calabaza dorada. Los expertos piden calma.',
+];
+
+// ================= Estado =================
+function newState(){
+  const n = {};
+  BUILD.forEach(b => n[b.id] = 0);
+  return {
+    cal:0, run:0, total:0, clicks:0, clickEarned:0, goldClicks:0,
+    n, up:{}, logros:{}, eternas:0, renaces:0,
+    buffs:[], goldT:90, buyN:1, mute:false, sfxVol:0.8, musVol:0.5, music:true,
+    chips:0, skills:{}, poderLv:0, repLv:{}, saveEvery:10,
+    runStart:Date.now(), lastSave:Date.now()
+  };
+}
+let S = newState();
+
+// ================= Números =================
+function fmt(n){
+  if (!isFinite(n)) return '∞';
+  if (n >= 1e63) return n.toExponential(3).replace('.', ',');
+  for (const [v, name] of UNITS){
+    if (n >= v) return (n / v).toLocaleString('es-ES', {maximumFractionDigits: 3}) + ' ' + name;
+  }
+  return Math.floor(n).toLocaleString('es-ES');
+}
+function fmtR(n){
+  if (n < 1e6) return n.toLocaleString('es-ES', {maximumFractionDigits: n < 100 ? 1 : 0});
+  return fmt(n);
+}
+function fmtT(sec){
+  sec = Math.floor(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  return (h ? h + ' h ' : '') + (h || m ? m + ' min ' : '') + s + ' s';
+}
+
+// ================= Fórmulas =================
+function nLogros(){ return Object.keys(S.logros).length; }
+function hasBuff(id){ return S.buffs.some(b => b.id === id); }
+function bProd(b){ return b.prod * Math.pow(2, ownedTiers(b) + ownedLooks(b)) * fxM('bld_' + b.id) * (b.id.startsWith('gen') ? fxM('gen') : 1); }
+function frenzyX(){ return (sk('frenesi') ? 10 : 7) + fxA('frenzy'); }
+function globalMult(noBuff){
+  const perLogro = 0.01 * (1 + ownedChain('k')) + fxA('logro');
+  let m = (1 + perLogro * nLogros()) * (1 + seedPct() * S.eternas) * skillMult();
+  if (!noBuff && hasBuff('frenesi')) m *= frenzyX();
+  return m;
+}
+function rate(noBuff){
+  let r = 0;
+  for (const b of BUILD) if (!b.clic) r += bProd(b) * (S.n[b.id] || 0);
+  return r * globalMult(noBuff);
+}
+// Lo que suman los espantapájaros a cada clic (se duplica con sus mejoras)
+function espPer(){ return BUILD[0].clic * Math.pow(2, ownedTiers(BUILD[0]) + ownedLooks(BUILD[0])) * fxM('esp'); }
+function espBonus(){ return espPer() * S.n[BUILD[0].id]; }
+function clickValue(){
+  let base = Math.pow(2, ownedChain('c')) * (sk('mano') ? 2 : 1);
+  base += espBonus();
+  const dedos = ownedChain('d') + (sk('dedos') ? 2 : 0) + fxA('dedos');
+  let v = (base + 0.01 * dedos * rate()) * (1 + seedPct() * S.eternas) * fxM('clic');
+  if (hasBuff('furia')) v *= 10;
+  return v;
+}
+function bulkCost(b, k){
+  return Math.floor(b.base * Math.pow(1.15, S.n[b.id]) * (Math.pow(1.15, k) - 1) / 0.15 * (sk('abono') ? 0.95 : 1) * fxM('bcost'));
+}
+function upCost(u){ return u.coste * fxM('ucost'); }
+function gananciaRenacer(){ return Math.floor(Math.sqrt(S.run / 1e6) * (sk('cosechador') ? 1.25 : 1) * fxM('seeds')); }
+function gain(x){ S.cal += x; S.run += x; S.total += x; }
+
+// ================= Árbol de renacer =================
+// Las semillas que ganas al renacer dan su bonus fijo (+2 % cada una) y además
+// se pueden gastar aquí. Gastarlas no quita ese bonus.
+// Coordenadas: x hacia la derecha, y hacia abajo; la raíz está en (0, 0).
+// fx: efectos genéricos. Las claves de multiplicar (prod, clic, bcost, ucost, goldFreq,
+// goldLife, fortuna, seeds, esp, gen, critX, bld_<edificio>) se multiplican entre sí;
+// las de sumar (logro, dedos, crit, frenzy, furia, goldChain, herencia, offline, arbol, start_<edificio>) se suman.
+// En las ramas "rep" (sin fin) el efecto se aplica una vez por nivel.
+const S_ = (id, nombre, coste, req, x, y, icono, desc, extra) => Object.assign({id, nombre, coste, req, x, y, icono, desc}, extra || {});
+const SKILLS = [
+  // ---- Centro (las de siempre) ----
+  S_('despertar', 'Despertar', 1, [], 0, 0, 'pump', '+10 % de producción.'),
+  S_('mano', 'Mano firme', 3, ['despertar'], -2, 1, 'clic', 'El clic vale el doble.'),
+  S_('veteranos', 'Espantapájaros veteranos', 10, ['mano'], -3, 2, 'espantapajaros', 'Empiezas cada vuelta con 10 espantapájaros.'),
+  S_('critico', 'Golpe crítico', 25, ['mano'], -1, 2, 'clic', '1 de cada 20 clics vale x10.', {hue:300}),
+  S_('dedos', 'Dedos de bruja', 100, ['veteranos'], -3, 3, 'clic', 'Cada clic suma además el 2 % de tu producción por segundo.', {hue:120}),
+  S_('furia', 'Furia eterna', 500, ['critico'], -1, 3, 'caldero', 'La Furia de cosecha dura un 50 % más.'),
+  S_('tierra', 'Tierra fértil', 3, ['despertar'], 0, 1, 'campo', '+25 % de producción.'),
+  S_('abono', 'Abono eterno', 15, ['tierra'], 0, 2, 'invernadero', 'Los edificios cuestan un 5 % menos.'),
+  S_('nocturna', 'Cosecha nocturna', 50, ['abono'], 0, 3, 'molino', 'Mientras no juegas recibes el 100 % (no la mitad), hasta 72 horas.'),
+  S_('raices', 'Raíces profundas', 200, ['nocturna'], 0, 4, 'campo', '+100 % de producción.', {look:3}),
+  S_('ojo', 'Ojo dorado', 5, ['despertar'], 2, 1, 'oro', 'Las calabazas doradas salen un 25 % más a menudo.'),
+  S_('brillo', 'Brillo largo', 20, ['ojo'], 1, 2, 'oro', 'Las calabazas doradas duran el doble en pantalla.'),
+  S_('midas', 'Toque de Midas', 80, ['ojo'], 3, 2, 'oro', 'La Fortuna da el doble.'),
+  S_('lluvia', 'Lluvia dorada', 300, ['brillo'], 1, 3, 'oro', 'Al pulsar una dorada, 1 de cada 5 veces sale otra enseguida.'),
+  S_('frenesi', 'Frenesí eterno', 1500, ['midas'], 3, 3, 'oro', 'El Frenesí da x10 en vez de x7.'),
+  S_('fuertes', 'Semillas fuertes', 400, ['raices'], -1, 5, 'vela', 'Cada semilla eterna da +3 % en vez de +2 %.'),
+  S_('cosechador', 'Cosechador de almas', 600, ['raices'], 0, 5, 'cementerio', 'Renacer da un 25 % más de semillas.'),
+  S_('memoria', 'Memoria del huerto', 1000, ['raices'], 1, 5, 'portal', 'Al renacer conservas las mejoras de cuchillos y manos.'),
+  S_('arbol', 'Árbol eterno', 10000, ['fuertes'], -1, 6, 'campo', '+5 % de producción por cada rama comprada del árbol.', {look:5, fx:{arbol:0.05}}),
+  S_('herencia', 'Herencia', 3000, ['cosechador'], 0, 6, 'granja', 'Empiezas cada vuelta con el 1 % de lo que cosechaste en la anterior.', {look:3}),
+  S_('poder', 'Poder de la semilla', 1000, ['memoria'], 1, 6, 'portal', '+10 % de producción por nivel. Se puede subir sin fin.', {look:6, rep:true}),
+
+  // ---- Arriba: el cielo ----
+  S_('primeraLuz', 'Primera luz', 10, ['despertar'], 0, -1, 'vela', '+20 % de producción.', {fx:{prod:1.2}}),
+  S_('mirada', 'Mirada al cielo', 40, ['primeraLuz'], 0, -2, 'oro', 'Cada logro da un 1 % más de producción.', {fx:{logro:0.01}}),
+  S_('polvoCosmico', 'Polvo cósmico', 300, ['mirada'], -1, -3, 'portal', 'Las mejoras cuestan un 10 % menos.', {hue:200, fx:{ucost:0.9}}),
+  S_('constelacion', 'Constelación', 150, ['mirada'], 0, -3, 'portal', '+50 % de producción.', {hue:160, fx:{prod:1.5}}),
+  S_('vientoSolar', 'Viento solar', 300, ['mirada'], 1, -3, 'molino', 'Los edificios cuestan un 3 % menos.', {look:3, fx:{bcost:0.97}}),
+  S_('fugaz', 'Estrella fugaz', 400, ['constelacion'], 0, -4, 'oro', 'Las calabazas doradas salen un 10 % más a menudo.', {fx:{goldFreq:0.9}}),
+  S_('supernova', 'Supernova', 2000, ['fugaz'], 0, -5, 'portal', 'Producción x2 y clic x2.', {look:5, fx:{prod:2, clic:2}}),
+  S_('cielo', 'Cielo infinito', 5000, ['supernova'], 0, -6, 'portal', 'Clic x1,5 por nivel. Se puede subir sin fin.', {look:7, rep:true, fx:{clic:1.5}}),
+
+  // ---- Izquierda: los edificios ----
+  S_('campos', 'Campos benditos', 30, ['veteranos'], -4, 2, 'campo', 'Los campos producen el triple.', {fx:{bld_campo:3}}),
+  S_('granjeros', 'Granjeros fantasma', 100, ['campos'], -5, 2, 'granja', 'Las granjas producen el triple.', {fx:{bld_granja:3}}),
+  S_('cristal', 'Cristal lunar', 300, ['granjeros'], -6, 2, 'invernadero', 'Los invernaderos producen el triple.', {fx:{bld_invernadero:3}}),
+  S_('vientoAnimas', 'Viento de ánimas', 1000, ['cristal'], -7, 2, 'molino', 'Los molinos producen el triple.', {fx:{bld_molino:3}}),
+  S_('receta', 'Receta prohibida', 3000, ['vientoAnimas'], -8, 2, 'caldero', 'Los calderos producen el triple.', {fx:{bld_caldero:3}}),
+  S_('tumbas', 'Tumbas fértiles', 10000, ['receta'], -9, 2, 'cementerio', 'Los cementerios producen el triple.', {fx:{bld_cementerio:3}}),
+  S_('grieta', 'Grieta estable', 30000, ['tumbas'], -10, 2, 'portal', 'Los portales producen el triple.', {fx:{bld_portal:3}}),
+  S_('semillero', 'Semillero', 50, ['campos'], -4, 1, 'campo', 'Empiezas cada vuelta con 25 campos.', {look:1, fx:{start_campo:25}}),
+  S_('peones', 'Peones de paja', 150, ['granjeros'], -5, 1, 'granja', 'Empiezas cada vuelta con 25 granjas.', {look:1, fx:{start_granja:25}}),
+  S_('vivero', 'Vivero', 500, ['cristal'], -6, 1, 'invernadero', 'Empiezas cada vuelta con 25 invernaderos.', {look:1, fx:{start_invernadero:25}}),
+  S_('carpinteria', 'Carpintería', 200, ['granjeros'], -5, 3, 'granja', 'Los edificios cuestan un 5 % menos.', {look:2, fx:{bcost:0.95}}),
+  S_('gremio', 'Gremio de constructores', 2000, ['vientoAnimas'], -7, 3, 'molino', 'Los edificios cuestan un 7 % menos.', {look:2, fx:{bcost:0.93}}),
+  S_('arquitecto', 'Arquitecto loco', 20000, ['tumbas'], -9, 3, 'cementerio', 'Los edificios cuestan un 10 % menos.', {look:3, fx:{bcost:0.9}}),
+
+  // ---- Abajo a la izquierda: el clic ----
+  S_('puno', 'Puño de calabaza', 150, ['dedos'], -3, 4, 'clic', 'El clic vale el triple.', {look:1, fx:{clic:3}}),
+  S_('cuervo', 'Ojo del cuervo', 400, ['puno'], -3, 5, 'clic', 'Un 5 % más de clics críticos.', {hue:260, fx:{crit:0.05}}),
+  S_('nudillos', 'Nudillos de plata', 600, ['cuervo'], -2, 5, 'clic', 'El clic vale el doble.', {look:2, fx:{clic:2}}),
+  S_('paja', 'Paja dorada', 800, ['cuervo'], -4, 5, 'espantapajaros', 'Los espantapájaros suman el triple a cada clic.', {look:3, fx:{esp:3}}),
+  S_('brutal', 'Golpe brutal', 1200, ['cuervo'], -3, 6, 'clic', 'Los críticos valen el doble (x20).', {hue:0, look:1, fx:{critX:2}}),
+  S_('milManos', 'Mil manos', 4000, ['brutal'], -3, 7, 'clic', 'Cada clic suma además otro 5 % de tu producción por segundo.', {look:4, fx:{dedos:5}}),
+  S_('ejercito', 'Ejército de paja', 6000, ['milManos'], -4, 7, 'espantapajaros', 'Empiezas cada vuelta con 50 espantapájaros más.', {look:4, fx:{start_espantapajaros:50}}),
+  S_('rey', 'Puño del rey', 15000, ['milManos'], -3, 8, 'clic', 'El clic vale x10.', {look:3, fx:{clic:10}}),
+  S_('punoEterno', 'Puño eterno', 20000, ['rey'], -3, 9, 'clic', 'Clic x1,5 por nivel. Se puede subir sin fin.', {look:6, rep:true, fx:{clic:1.5}}),
+
+  // ---- Derecha: el oro ----
+  S_('iman', 'Imán dorado', 2500, ['frenesi'], 4, 3, 'oro', 'Las calabazas doradas salen un 15 % más a menudo.', {fx:{goldFreq:0.85}}),
+  S_('fundido', 'Oro fundido', 5000, ['iman'], 5, 3, 'oro', 'La Fortuna da el doble.', {fx:{fortuna:2}}),
+  S_('gato', 'Gato negro', 8000, ['fundido'], 5, 2, 'oro', 'Las calabazas doradas salen un 10 % más a menudo.', {fx:{goldFreq:0.9}}),
+  S_('monedas', 'Monedas malditas', 12000, ['fundido'], 5, 4, 'oro', 'La Fortuna da un 50 % más.', {fx:{fortuna:1.5}}),
+  S_('relampago', 'Brillo relámpago', 10000, ['fundido'], 6, 3, 'oro', 'Las calabazas doradas duran un 50 % más en pantalla.', {fx:{goldLife:1.5}}),
+  S_('racha', 'Racha dorada', 25000, ['relampago'], 7, 3, 'oro', 'Un 15 % más de que salga otra dorada enseguida.', {fx:{goldChain:0.15}}),
+  S_('brilloEterno', 'Brillo eterno', 40000, ['racha'], 7, 2, 'oro', 'Las calabazas doradas duran un 50 % más en pantalla.', {fx:{goldLife:1.5}}),
+  S_('furiaLarga', 'Furia larga', 50000, ['racha'], 7, 4, 'caldero', 'La Furia de cosecha dura 10 s más.', {look:3, fx:{furia:10}}),
+  S_('frenesiDoble', 'Frenesí doble', 60000, ['racha'], 8, 3, 'oro', 'El Frenesí da 5 más (x15 con Frenesí eterno).', {fx:{frenzy:5}}),
+  S_('corona', 'Corona de Midas', 150000, ['frenesiDoble'], 9, 3, 'oro', 'Las calabazas doradas salen un 30 % más a menudo.', {fx:{goldFreq:0.7}}),
+
+  // ---- Abajo a la derecha: la noche ----
+  S_('luzLuna', 'Luz de luna', 1500, ['memoria'], 2, 5, 'vela', '+50 % de producción.', {hue:200, fx:{prod:1.5}}),
+  S_('niebla', 'Niebla espesa', 4000, ['luzLuna'], 3, 5, 'molino', '+50 % de producción.', {look:2, fx:{prod:1.5}}),
+  S_('logistica', 'Carros fantasma', 8000, ['niebla'], 3, 6, 'granja', 'Los edificios cuestan un 5 % menos.', {look:4, fx:{bcost:0.95}}),
+  S_('noche', 'Noche eterna', 12000, ['niebla'], 4, 5, 'cementerio', 'Producción x2.', {look:2, fx:{prod:2}}),
+  S_('eclipse', 'Eclipse', 40000, ['noche'], 5, 5, 'portal', 'Producción x2.', {look:4, fx:{prod:2}}),
+  S_('gemelos', 'Portales gemelos', 80000, ['eclipse'], 5, 6, 'portal', 'Los edificios nuevos (después del Portal) producen el doble.', {look:5, fx:{gen:2}}),
+  S_('sangre', 'Luna de sangre', 120000, ['eclipse'], 6, 5, 'vela', 'Producción x3.', {hue:330, look:1, fx:{prod:3}}),
+  S_('finTiempos', 'Fin de los tiempos', 400000, ['sangre'], 7, 5, 'portal', 'Producción x5.', {look:6, fx:{prod:5}}),
+  S_('multiverso', 'Multiverso', 800000, ['finTiempos'], 7, 6, 'portal', 'Los edificios nuevos producen el triple.', {look:7, fx:{gen:3}}),
+  S_('hambre', 'Hambre eterna', 500000, ['finTiempos'], 8, 5, 'caldero', 'Producción x1,25 por nivel. Se puede subir sin fin.', {look:6, rep:true, fx:{prod:1.25}}),
+
+  // ---- Abajo: las semillas ----
+  S_('almaVieja', 'Alma vieja', 5000, ['herencia'], 0, 7, 'cementerio', 'Renacer da un 20 % más de semillas.', {look:2, fx:{seeds:1.2}}),
+  S_('cemEstrellas', 'Cementerio de estrellas', 15000, ['almaVieja'], 0, 8, 'cementerio', 'Renacer da un 25 % más de semillas.', {look:5, fx:{seeds:1.25}}),
+  S_('raizLuz', 'Raíz de luz', 30000, ['cemEstrellas'], -1, 8, 'campo', 'Cada logro da un 1 % más de producción.', {look:5, fx:{logro:0.01}}),
+  S_('menteBruja', 'Mente de bruja', 25000, ['cemEstrellas'], 1, 8, 'caldero', 'Las mejoras cuestan un 20 % menos.', {look:4, fx:{ucost:0.8}}),
+  S_('cicloLunar', 'Ciclo lunar', 40000, ['cemEstrellas'], 0, 9, 'vela', 'Renacer da un 30 % más de semillas.', {look:2, fx:{seeds:1.3}}),
+  S_('eco', 'Eco del pasado', 100000, ['cicloLunar'], 0, 10, 'granja', 'La Herencia da un 2 % más (3 % en total).', {look:4, fx:{herencia:0.02}}),
+  S_('sueno', 'Sueño profundo', 150000, ['eco'], -1, 10, 'molino', 'Recibes lo producido fuera hasta 4 días más.', {look:5, fx:{offline:96}}),
+  S_('polvoEstelar', 'Polvo estelar', 200000, ['eco'], 1, 10, 'portal', '+50 % de producción.', {look:3, fx:{prod:1.5}}),
+  S_('eternidad', 'Eternidad', 300000, ['eco'], 0, 11, 'vela', 'Renacer da un 50 % más de semillas.', {look:6, fx:{seeds:1.5}}),
+  S_('corazon', 'Corazón del árbol', 1e6, ['eternidad'], 0, 12, 'campo', 'Producción x3.', {look:6, fx:{prod:3}}),
+  S_('arbolMundo', 'Árbol del mundo', 3e6, ['corazon'], -1, 12, 'campo', '+2 % de producción por cada rama comprada del árbol.', {look:7, fx:{arbol:0.02}}),
+  S_('savia', 'Savia dorada', 2e6, ['corazon'], 1, 12, 'oro', 'Las calabazas doradas salen un 15 % más a menudo.', {fx:{goldFreq:0.85}}),
+  S_('raizInf', 'Raíz infinita', 5e6, ['corazon'], 0, 13, 'campo', 'Renacer da un 10 % más de semillas por nivel. Se puede subir sin fin.', {look:8, rep:true, fx:{seeds:1.1}}),
+];
+const SKILL_MAP = {};
+for (const s of SKILLS) SKILL_MAP[s.id] = s;
+// Efectos de todas las ramas compradas, calculados una sola vez
+let FXM = {}, FXA = {};
+function rebuildFx(){
+  FXM = {}; FXA = {};
+  for (const s of SKILLS){
+    if (!s.fx) continue;
+    const lv = s.rep ? repLv(s) : (sk(s.id) ? 1 : 0);
+    if (!lv) continue;
+    for (const k in s.fx){
+      const v = s.fx[k];
+      if (/^(logro|dedos|crit|frenzy|furia|goldChain|herencia|offline|arbol|start_)/.test(k)) FXA[k] = (FXA[k] || 0) + v * lv;
+      else FXM[k] = (FXM[k] || 1) * Math.pow(v, lv);
+    }
+  }
+}
+const fxM = k => FXM[k] || 1;
+const fxA = k => FXA[k] || 0;
+function repLv(s){ return s.id === 'poder' ? (S.poderLv || 0) : ((S.repLv || {})[s.id] || 0); }
+function sk(id){ return !!(S.skills && S.skills[id]); }
+function skillById(id){ return SKILL_MAP[id]; }
+function skillCost(s){ return s.rep ? s.coste * Math.pow(2, repLv(s)) : s.coste; }
+function skillOpen(s){ return s.req.every(sk); }
+function buySkill(s){
+  if ((!s.rep && sk(s.id)) || !skillOpen(s)) return false;
+  const c = skillCost(s);
+  if (S.chips < c){ SND.no(); return false; }
+  S.chips -= c;
+  if (s.rep){
+    if (s.id === 'poder') S.poderLv = (S.poderLv || 0) + 1;
+    else { S.repLv = S.repLv || {}; S.repLv[s.id] = (S.repLv[s.id] || 0) + 1; }
+  }
+  S.skills[s.id] = true;
+  rebuildFx();
+  SND.mejora();
+  toast('Árbol de renacer', s.nombre + (s.rep ? ' (nivel ' + repLv(s) + ')' : '') + ' desbloqueado.');
+  upKey = '';
+  saveSoon();
+  return true;
+}
+function skillMult(){
+  let m = 1;
+  if (sk('despertar')) m *= 1.1;
+  if (sk('tierra')) m *= 1.25;
+  if (sk('raices')) m *= 2;
+  m *= 1 + 0.1 * (S.poderLv || 0);
+  m *= 1 + fxA('arbol') * Object.keys(S.skills).length;
+  m *= fxM('prod');
+  return m;
+}
+function seedPct(){ return sk('fuertes') ? 0.03 : 0.02; }
+
+// ================= Sonido (Web Audio, sintetizado) =================
+// Mezcla: efectos y música por separado, con volumen y un eco suave
+let AC = null, master = null, sfxBus = null, musBus = null;
+function getAC(){
+  if (!AC){
+    try {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      master = AC.createGain(); master.connect(AC.destination);
+      sfxBus = AC.createGain(); musBus = AC.createGain();
+      const dl = AC.createDelay(1), fb = AC.createGain(), wet = AC.createGain();
+      dl.delayTime.value = 0.31; fb.gain.value = 0.32; wet.gain.value = 0.3;
+      dl.connect(fb); fb.connect(dl); dl.connect(wet); wet.connect(master);
+      sfxBus.connect(master); musBus.connect(master); musBus.connect(dl);
+      const send = AC.createGain(); send.gain.value = 0.12; sfxBus.connect(send); send.connect(dl);
+    } catch (e) { AC = null; }
+  }
+  if (!AC) return null;
+  if (AC.state === 'suspended') AC.resume();
+  applyVol();
+  if (S.music) startMusic();
+  return AC;
+}
+function applyVol(){
+  if (!AC) return;
+  master.gain.value = S.mute ? 0 : 1;
+  sfxBus.gain.value = S.sfxVol;
+  musBus.gain.value = S.musVol * 0.45;
+}
+function tone(f1, f2, dur, type, vol, delay, bus, attack){
+  if (!AC || S.mute) return;
+  const t0 = AC.currentTime + (delay || 0);
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(f1, t0);
+  if (f2 !== f1) o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol || 0.15, t0 + (attack || 0.01));
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(bus || sfxBus);
+  o.start(t0); o.stop(t0 + dur + 0.05);
+}
+// Ruido filtrado: crujidos y soplidos
+let noiseBuf = null;
+function noise(dur, freq, q, vol, delay){
+  if (!AC || S.mute) return;
+  if (!noiseBuf){
+    noiseBuf = AC.createBuffer(1, AC.sampleRate * 0.5, AC.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const t0 = AC.currentTime + (delay || 0);
+  const src = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  src.buffer = noiseBuf;
+  f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(f); f.connect(g); g.connect(sfxBus);
+  src.start(t0); src.stop(t0 + dur + 0.02);
+}
+const SND = {
+  clic: () => { tone(220 + Math.random() * 50, 90, 0.1, 'triangle', 0.22); noise(0.06, 1800 + Math.random() * 600, 1.2, 0.18); },
+  compra: () => { noise(0.05, 900, 2, 0.15); tone(988, 988, 0.09, 'square', 0.05, 0.02); tone(1319, 1319, 0.18, 'square', 0.05, 0.09); },
+  mejora: () => [784, 988, 1175, 1568].forEach((f, i) => tone(f, f, 0.22, 'triangle', 0.09, i * 0.06)),
+  no: () => tone(150, 110, 0.12, 'sawtooth', 0.05),
+  oro: () => { [660, 880, 990, 1320, 1760].forEach((f, i) => tone(f, f * 1.01, 0.25, 'sine', 0.12, i * 0.06)); noise(0.5, 6000, 0.8, 0.05, 0.1); },
+  logro: () => { tone(784, 784, 0.15, 'triangle', 0.1); tone(988, 988, 0.15, 'triangle', 0.1, 0.12); tone(1319, 1319, 0.4, 'triangle', 0.12, 0.24); },
+  renacer: () => { tone(110, 880, 1.6, 'sine', 0.18, 0, null, 0.4); [440, 554, 659, 880].forEach((f, i) => tone(f, f, 1.5, 'sine', 0.07, 1 + i * 0.08, null, 0.1)); },
+  abrir: () => { noise(0.12, 500, 1, 0.08); tone(330, 440, 0.08, 'sine', 0.05); },
+};
+
+// Música de fondo: bajo lento en La menor y una melodía suelta tipo caja de música
+let musTimer = null, musNext = 0, musStep = 0;
+const MUS_BASS = [110, 87.31, 130.81, 82.41];
+const MUS_SCALE = [440, 523.25, 587.33, 659.25, 783.99, 880, 1046.5];
+function startMusic(){
+  if (!AC || musTimer) return;
+  musNext = AC.currentTime + 0.1;
+  musTimer = setInterval(() => {
+    if (!AC || !S.music) return;
+    const beat = 60 / 84;
+    while (musNext < AC.currentTime + 0.6){
+      const bar = Math.floor(musStep / 8) % 4;
+      if (musStep % 8 === 0) tone(MUS_BASS[bar], MUS_BASS[bar], beat * 7.5, 'triangle', 0.18, musNext - AC.currentTime, musBus, 0.3);
+      if (musStep % 8 === 4) tone(MUS_BASS[bar] * 1.5, MUS_BASS[bar] * 1.5, beat * 3.5, 'sine', 0.06, musNext - AC.currentTime, musBus, 0.2);
+      if (Math.random() < (musStep % 2 ? 0.25 : 0.45)){
+        const f = MUS_SCALE[Math.floor(Math.random() * MUS_SCALE.length)];
+        tone(f, f, beat * 1.8, 'sine', 0.07, musNext - AC.currentTime, musBus, 0.005);
+        tone(f * 2, f * 2, beat * 0.8, 'sine', 0.015, musNext - AC.currentTime, musBus, 0.005);
+      }
+      musNext += beat / 2;
+      musStep++;
+    }
+  }, 200);
+}
+function stopMusic(){ if (musTimer){ clearInterval(musTimer); musTimer = null; } }
+
+// ================= Dibujo a mano =================
+// Contorno suave por puntos: curvas entre puntos medios, sin esquinas
+function smooth(g, pts){
+  const L = pts.length;
+  g.moveTo((pts[L - 1][0] + pts[0][0]) / 2, (pts[L - 1][1] + pts[0][1]) / 2);
+  for (let i = 0; i < L; i++){
+    const p = pts[i], q = pts[(i + 1) % L];
+    g.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+  }
+  g.closePath();
+}
+// Mancha irregular, como hecha a mano alzada
+function blob(g, x, y, rx, ry, seed, jit, n){
+  n = n || 10;
+  const pts = [];
+  for (let i = 0; i < n; i++){
+    const a = i / n * Math.PI * 2;
+    const k = 1 + (rnd(seed + i * 7.3) - 0.5) * jit;
+    pts.push([x + Math.cos(a) * rx * k, y + Math.sin(a) * ry * k]);
+  }
+  smooth(g, pts);
+}
+// Forma "tallada": lados ligeramente curvos e irregulares
+function carve(g, pts, seed, amt){
+  const L = pts.length;
+  g.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 0; i < L; i++){
+    const p = pts[i], q = pts[(i + 1) % L];
+    const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+    const j = (rnd(seed + i * 3.1) - 0.5) * amt;
+    g.quadraticCurveTo(mx - (q[1] - p[1]) * j, my + (q[0] - p[0]) * j, q[0], q[1]);
+  }
+  g.closePath();
+}
+
+// ================= Pixel art =================
+// La calabaza principal es tu imagen. El resto se pinta píxel a píxel con el mismo estilo:
+// colores planos, luces y sombras a mano y un contorno marrón oscuro alrededor.
+const IMG = new Image();
+let imgOk = false;
+IMG.onload = () => { imgOk = true; pumpCache = {}; renderLanes(true); upKey = ''; };
+IMG.src = 'img/calabaza.png';
+
+const PAL = {
+  o:'#f26a0c', O:'#ff9a2e', d:'#c4470a', y:'#ffd23a', Y:'#fff27a',
+  g:'#5e8a12', G:'#a8c81e', h:'#2f4a0a', b:'#7a4a1e', B:'#a8723a', n:'#4a2a10',
+  s:'#e8c050', S:'#f8e08a', p:'#5a3a8a', P:'#8a5ac0', q:'#2e1a4a',
+  r:'#b02a1a', R:'#e04a2a', w:'#f0ece0', W:'#c8c4d0', x:'#8a8496', X:'#4a4456',
+  c:'#7ac8e8', C:'#d8f4ff', m:'#d040ff', M:'#ffb0ff', k:'#1c1420', e:'#7af06a', E:'#c8ffb0',
+  t:'#d8a868', T:'#f0d098'
+};
+const OUTLINE = '#2a0e05';
+const SPR = {
+  espantapajaros: [
+    '......pppp......','.....pPPPPp.....','...pppppppppp...','....tTTTTTTt....',
+    '....tTkTTkTt....','....tTTTTTTt....','....ttkkkktt....','.s....tttt....s.',
+    'sSbbbbrRRrbbbbSs','.s....rRRr....s.','......rrrr......','.....sbbbbs.....',
+    '.......bb.......','.......bb.......','.......bb.......','......nbbn......'],
+  campo: [
+    '................','................','....g......g....','...gGg....gGg...',
+    '....hg....gh....','.....h....h.....','..G..h.oo.h..G..','.gGg.hoOOoh.gGg.',
+    '..h..oOOooo..h..','..h..ooooodd.h..','.bbb..dddd..bbb.','bBBbbbbbbbbbbBBb',
+    'bbnbbBbbnbbBbbnb','nbbbnbbbbbnbbbbn','.nnnnnnnnnnnnnn.','................'],
+  granja: [
+    '.......ww.......','......wRRw......','.....wRRRRw.....','....wRRwwRRw....',
+    '...wRRwnnwRRw...','..wRRRwwwwRRRw..','.wRRRRRRRRRRRRw.','..rRrRrRrRrRrr..',
+    '..rRrwwwwwwrRr..','..rRrwnwwnwrRr..','..rRrwwnnwwrRr..','..rRrwnwwnwrRr..',
+    '..rRrwwwwwwrRr..','..rrrrrrrrrrrr..','gGgGgGgGgGgGgGgG','hghghghghghghghg'],
+  invernadero: [
+    '................','......WWWW......','....WWccccWW....','...WCcccWcccW...',
+    '..WCccccWccccW..','..WcccccWccccW..','.WWWWWWWWWWWWWW.','.WCccccgWcccccW.',
+    '.WccccoGocccccW.','.WcccoOOooccccW.','.WWWWooooWWWWWW.','.WCcccddddccccW.',
+    '.WccccccWcccccW.','.WWWWWWWWWWWWWW.','.xXxXxXxXxXxXxX.','................'],
+  molino: [
+    '..w..........w..','...w........w...','....ww....ww....','.....wwBBww.....',
+    '......BnnB......','.....wwBBww.....','....ww.xx.ww....','...w..xWWx..w...',
+    '..w...xWWx...w..','......xWWx......','.....xWnnWx.....','.....xWnnWx.....',
+    '.....xWWWWx.....','....xWWWWWWx....','gGgGxxxxxxxxgGgG','hghghghghghghghg'],
+  caldero: [
+    '......E..e......','....e...E...e...','.......e..E.....','..kkkkkkkkkkkk..',
+    '.kXXeeeEeeeeXXk.','.kXeEeeeeeEeeXk.','..kkkkkkkkkkkk..','.kkkXkkkkkkkkkk.',
+    'kkkXkkkkkkkkkkkk','kkXkkkkkkkkkkkkk','kkkkkkkkkkkkkkkk','.kkkkkkkkkkkkkk.',
+    '..kkkkkkkkkkkk..','...k..rRRr..k...','..k..rRyyRr..k..','.....rryyrr.....'],
+  cementerio: [
+    '................','....xxxx........','...xWWWWx.......','...xWXWWx.......',
+    '...xXXXWx..xxx..','...xWXWWx.xWWWx.','...xWXWWx.xWWWx.','...xWWWWx.xXXWx.',
+    '...xWWWWx.xWWWx.','...xWWWWx.xXXWx.','...xxxxxx.xxxxx.','.h.......h...h..',
+    'gGgh.gGg.hgGg.gG','GgGgGgGgGgGgGgGg','hghghghghghghghg','................'],
+  portal: [
+    '.....qqqqqq.....','...qqppppppqq...','..qpppPPPPpppq..','.qppPPmmmmPPppq.',
+    '.qpPPmMMMMmPPpq.','qppPmMwwwwMmPppq','qpPmMwwMMwwMmPpq','qpPmMwMmmMwMmPpq',
+    'qpPmMwMmmMwMmPpq','qpPmMwwMMwwMmPpq','qppPmMwwwwMmPppq','.qpPPmMMMMmPPpq.',
+    '.qppPPmmmmPPppq.','..qpppPPPPpppq..','...qqppppppqq...','.....qqqqqq.....'],
+  clic: [
+    '...............w','..............wW','.............wWx','............wWx.',
+    '...........wWx..','..........wWx...','.........wWx....','........wWx.....',
+    '.......wWx......','......xxx.......','.....nBxx.......','....nBn.........',
+    '...nBn..........','..nBn...........','.nBn............','.nn.............'],
+  vela: [
+    '.......y........','......yYy.......','......yYy.......','.....oyYyo......',
+    '......oyo.......','.......k........','.....TTTTTT.....','.....TwTTTT.....',
+    '.....TwTTTt.....','.....TTTTTt.....','.....TwTTTt.....','.....TTTTTt.....',
+    '.....TTTTTt.....','...BBBBBBBBBB...','....nnnnnnnn....','................'],
+};
+// Normaliza filas (16 de ancho) para que un error de tecleo no rompa el dibujo
+for (const k in SPR) SPR[k] = SPR[k].map(r => (r + '................').slice(0, 16));
+
+// ---------- Colores: tono (edificios nuevos) y aspecto (mejoras de aspecto) ----------
+function hex2rgb(h){ return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+function rgb2hex(r, g, b){ return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join(''); }
+function hueRotate(hex, deg){
+  if (!deg) return hex;
+  let [r, g, b] = hex2rgb(hex).map(v => v / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  let h = 0, s = 0;
+  if (mx !== mn){
+    const d = mx - mn;
+    s = l > .5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h /= 6;
+  }
+  h = (h + deg / 360) % 1;
+  const f = (p, q, t) => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < .5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+  if (s === 0) return rgb2hex(l * 255, l * 255, l * 255);
+  const q = l < .5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  return rgb2hex(f(p, q, h + 1 / 3) * 255, f(p, q, h) * 255, f(p, q, h - 1 / 3) * 255);
+}
+// Aspectos: el mismo dibujo, pero recoloreado según la luz de cada píxel
+const LOOKS = [
+  {nombre:'Normal'},
+  {nombre:'Reforzado', bright:1.18, outline:'#7a3a10'},
+  {nombre:'Plateado', ramp:['#3a3f52', '#f4f6ff'], keep:.3, outline:'#1e2030', spark:'#ffffff'},
+  {nombre:'Dorado', ramp:['#5a3200', '#fff2a0'], keep:.2, outline:'#3a2000', spark:'#fffbe0'},
+  {nombre:'Embrujado', ramp:['#2a0a40', '#f0b0ff'], keep:.25, outline:'#14001e', spark:'#ffe0ff', glow:'rgba(210,90,255,.55)'},
+  {nombre:'Celestial', ramp:['#0a2a4a', '#e0ffff'], keep:.2, outline:'#001428', spark:'#ffffff', glow:'rgba(120,230,255,.6)'},
+];
+function lookDef(k){
+  if (k < LOOKS.length) return LOOKS[k];
+  // A partir de aquí, aspectos legendarios sin fin: dorado con otro tono y aura
+  const deg = (k - LOOKS.length + 1) * 55;
+  return {nombre:'Legendario ' + roman(k - LOOKS.length + 1), ramp:[hueRotate('#5a3200', deg), hueRotate('#fff2a0', deg)], keep:.15,
+    outline:'#140a00', spark:'#ffffff', glow:'rgba(' + hex2rgb(hueRotate('#ffc040', deg)).join(',') + ',.65)'};
+}
+function lookColor(hex, L){
+  if (!L.ramp && !L.bright) return hex;
+  const [r, g, b] = hex2rgb(hex);
+  if (L.bright) return rgb2hex(r * L.bright + 12, g * L.bright + 6, b * L.bright);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const [d, l] = L.ramp.map(hex2rgb);
+  const k = L.keep;
+  return rgb2hex(
+    (d[0] + (l[0] - d[0]) * lum) * (1 - k) + r * k,
+    (d[1] + (l[1] - d[1]) * lum) * (1 - k) + g * k,
+    (d[2] + (l[2] - d[2]) * lum) * (1 - k) + b * k);
+}
+
+// Pinta un sprite con contorno a una escala entera (con tono y aspecto opcionales)
+const sprCache = {};
+function sprite(name, scale, hue, look){
+  hue = hue || 0; look = look || 0;
+  const key = name + '@' + scale + '@' + hue + '@' + look;
+  if (sprCache[key]) return sprCache[key];
+  const L = lookDef(look);
+  const rows = SPR[name], N = 16, P = N + 4;
+  const c = document.createElement('canvas');
+  c.width = c.height = P * scale;
+  const g = c.getContext('2d');
+  const filled = (x, y) => y >= 0 && y < N && x >= 0 && x < N && rows[y][x] !== '.';
+  const near = (x, y, d) => { for (let dy = -d; dy <= d; dy++) for (let dx = -d; dx <= d; dx++) if (Math.abs(dx) + Math.abs(dy) <= d && filled(x + dx, y + dy)) return true; return false; };
+  const pal = {};
+  for (const ch in PAL) pal[ch] = lookColor(hueRotate(PAL[ch], hue), L);
+  for (let y = -2; y <= N + 1; y++) for (let x = -2; x <= N + 1; x++){
+    let col = null;
+    if (filled(x, y)) col = pal[rows[y][x]];
+    else if (near(x, y, 1)) col = L.outline || OUTLINE;
+    else if (L.glow && near(x, y, 2)) col = L.glow;
+    if (col){ g.fillStyle = col; g.fillRect((x + 2) * scale, (y + 2) * scale, scale, scale); }
+  }
+  // Destellos en los aspectos brillantes
+  if (L.spark){
+    g.fillStyle = L.spark;
+    for (let i = 0; i < 40 && i < 6 * 7; i++){
+      const x = Math.floor(rnd(i * 5 + look * 31 + name.length) * N), y = Math.floor(rnd(i * 9 + look * 17 + 3) * N);
+      if (filled(x, y) && rnd(i + look) > .82) g.fillRect((x + 2) * scale, (y + 2) * scale, scale, scale);
+    }
+  }
+  return (sprCache[key] = c);
+}
+function drawSprite(g, name, x, y, size, hue, look){
+  const sc = Math.max(1, Math.round(size / 20));
+  const prev = g.imageSmoothingEnabled;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(sprite(name, sc, hue, look), x - size / 2, y - size / 2, size, size);
+  g.imageSmoothingEnabled = prev;
+}
+
+// Copias pequeñas de tu calabaza (normal y dorada) para dibujar rápido
+let pumpCache = {};
+function pumpImg(px, gold){
+  px = Math.max(8, Math.round(px / 8) * 8);
+  const key = px + (gold ? 'g' : '');
+  if (pumpCache[key]) return pumpCache[key];
+  const c = document.createElement('canvas');
+  c.width = c.height = px;
+  const g = c.getContext('2d');
+  if (imgOk){
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(IMG, 0, 0, px, px);
+  } else {
+    g.fillStyle = '#f26a0c'; g.beginPath(); g.arc(px / 2, px / 2, px * .42, 0, Math.PI * 2); g.fill();
+  }
+  if (gold){
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = 'rgba(255,214,60,.6)';
+    g.fillRect(0, 0, px, px);
+    g.fillStyle = 'rgba(255,255,220,.25)';
+    g.fillRect(0, 0, px, px * .45);
+  }
+  if (imgOk) pumpCache[key] = c;
+  return c;
+}
+function drawPump(g, x, y, size, gold){
+  g.drawImage(pumpImg(Math.min(512, size * DPR), gold), x - size / 2, y - size / 2, size, size);
+}
+
+// Icono para la tienda y los logros
+function spriteIcon(kind, tier, hue, look, badge){
+  const c = document.createElement('canvas');
+  const px = 44 * Math.min(2, window.devicePixelRatio || 1);
+  c.width = c.height = px;
+  const g = c.getContext('2d');
+  if (kind === 'oro') drawPump(g, px / 2, px / 2, px * .92, true);
+  else if (SPR[kind]){ g.imageSmoothingEnabled = false; g.drawImage(sprite(kind, Math.max(1, Math.floor(px / 20)), hue, look), 0, 0, px, px); }
+  else drawPump(g, px / 2, px / 2, px * .92, false);
+  if (tier != null || badge){
+    const s = Math.round(px / 9);
+    g.fillStyle = OUTLINE; g.fillRect(px - s * 2 - 1, 0, s * 2 + 1, s * 2 + 1);
+    g.fillStyle = badge || tierColor(tier); g.fillRect(px - s * 2, 1, s * 2 - 1, s * 2 - 1);
+  }
+  return c;
+}
+
+// ================= Panel central: pasillos =================
+// Cada edificio comprado (menos el espantapájaros) aparece en su pasillo
+const LANE_BG = {
+  campo:['#4a2a10','#5a3418'], granja:['#5a2a1a','#6a3420'], invernadero:['#1e3a3a','#244848'],
+  molino:['#2a3a1e','#334826'], caldero:['#1e1428','#281a34'], cementerio:['#1a1e26','#222834'], portal:['#1e0a30','#2a1040']
+};
+let laneKey = '';
+function renderLanes(force){
+  const mid = $('lanes');
+  if (!mid) return;
+  const desk = W > 760;
+  const owned = BUILD.filter(b => b.id !== 'espantapajaros' && S.n[b.id] > 0);
+  const key = (desk ? 'd' : 'm') + Math.round($('lanes').clientWidth) + ':' + Math.round(globalMult() * 100) + ':' + owned.map(b => b.id + ':' + S.n[b.id] + ':' + ownedTiers(b) + ':' + ownedLooks(b)).join(',');
+  if (!force && key === laneKey) return;
+  laneKey = key;
+  mid.innerHTML = '';
+  if (!owned.length){
+    mid.innerHTML = '<div class="lempty">Compra un campo y aparecerá aquí, en su pasillo.</div>';
+    return;
+  }
+  const w = Math.max(100, mid.clientWidth), h = 72, size = 46, gap = 40;
+  for (const b of owned){
+    const lane = document.createElement('div');
+    lane.className = 'lane';
+    const c = document.createElement('canvas');
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = Math.floor(w * dpr); c.height = Math.floor(h * dpr);
+    c.style.width = w + 'px'; c.style.height = h + 'px';
+    const g = c.getContext('2d');
+    g.scale(dpr, dpr);
+    g.imageSmoothingEnabled = false;
+    // Suelo del pasillo a cuadros, estilo píxel
+    const [c1, c2] = (LANE_BG[b.spr] || ['#2a1a2e', '#33203a']).map(c => hueRotate(c, b.hue));
+    const t = 8;
+    for (let yy = 0; yy < h; yy += t) for (let xx = 0; xx < w; xx += t){
+      g.fillStyle = ((xx + yy) / t) % 2 ? c1 : c2;
+      g.fillRect(xx, yy, t, t);
+    }
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, h - 6, w, 6);
+    g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(0, 0, w, 3);
+    // Los edificios, uno al lado del otro, con un poco de desorden
+    const fit = Math.max(1, Math.floor((w - 20) / gap));
+    const show = Math.min(S.n[b.id], fit);
+    for (let i = 0; i < show; i++){
+      const x = 24 + i * gap + (rnd(i + b.base) - .5) * 6;
+      const y = h / 2 + 2 + (i % 2 ? 6 : -4) + (rnd(i * 3 + b.base) - .5) * 4;
+      drawSprite(g, b.spr, x, y, size, b.hue, ownedLooks(b));
+    }
+    lane.appendChild(c);
+    const lab = document.createElement('span');
+    lab.className = 'lab';
+    lab.textContent = b.nombre + (ownedLooks(b) ? ' (' + lookDef(ownedLooks(b)).nombre.toLowerCase() + ')' : '') + ' x' + S.n[b.id] + ' · ' + fmtR(bProd(b) * S.n[b.id] * globalMult()) + '/s';
+    lane.appendChild(lab);
+    mid.appendChild(lane);
+  }
+}
+
+// Murciélago: dos formas de ala que se alternan
+function bat(g, x, y, s, up){
+  g.save(); g.translate(x, y); g.scale(s, s);
+  g.fillStyle = '#0a0510';
+  g.beginPath(); blob(g, 0, 0, 3, 4, 2, .1, 7); g.fill();
+  g.beginPath();
+  const wy = up ? -9 : 5;
+  for (const d of [-1, 1]){
+    g.moveTo(0, -1);
+    g.quadraticCurveTo(d * 6, wy - 2, d * 13, wy);
+    g.quadraticCurveTo(d * 10, wy * 0.3 + 2, d * 8, 3);
+    g.quadraticCurveTo(d * 5, 1, d * 3, 3);
+    g.closePath();
+  }
+  g.fill();
+  g.restore();
+}
+
+// ================= Escena =================
+let bg = null, vig = null;
+function leftW(){ return W > 760 ? Math.max(300, Math.round((W - 340) * 0.42)) : W; }
+function area(){
+  const desk = W > 760;
+  return {w: leftW(), h: desk ? H : H * 0.54, desk};
+}
+function bigPos(){
+  const a = area();
+  const r = Math.min(a.w, a.h) * (a.desk ? 0.17 : 0.19);
+  return {x: a.w / 2, y: a.desk ? a.h * 0.5 : a.h * 0.58, r};
+}
+function groundY(){ return area().h * 0.86; }
+
+// Capas fijas (cielo, luna, colinas, árboles, casa) en un lienzo aparte
+function buildBg(){
+  bg = document.createElement('canvas');
+  bg.width = cv.width; bg.height = cv.height;
+  const g = bg.getContext('2d');
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const a = area(), gy = groundY();
+  const sky = g.createLinearGradient(0, 0, 0, a.h);
+  sky.addColorStop(0, '#1a0b2e'); sky.addColorStop(0.75, '#2c1142'); sky.addColorStop(1, '#07040d');
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  // Luna con halo de dos capas
+  const mx = a.w * 0.82, my = a.h * 0.2, mr = Math.min(a.w, a.h) * 0.06;
+  [[3, .12], [1.8, .22]].forEach(([k, al]) => {
+    const h = g.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * k);
+    h.addColorStop(0, 'rgba(255,225,170,' + al + ')'); h.addColorStop(1, 'rgba(255,225,170,0)');
+    g.fillStyle = h; g.beginPath(); g.arc(mx, my, mr * k, 0, Math.PI * 2); g.fill();
+  });
+  g.fillStyle = '#f4ead0'; g.beginPath(); blob(g, mx, my, mr, mr, 11, .03, 12); g.fill();
+  g.fillStyle = 'rgba(180,160,130,.35)';
+  g.beginPath(); blob(g, mx - mr * .3, my - mr * .2, mr * .2, mr * .17, 3, .3, 7); blob(g, mx + mr * .35, my + mr * .25, mr * .14, mr * .12, 8, .3, 7); g.fill();
+  // Colinas lejanas y cercanas
+  [['#22102f', 0.7, 0.05, 1], ['#170a20', 0.78, 0.04, 2]].forEach(([c, base, amp, s]) => {
+    g.fillStyle = c; g.beginPath(); g.moveTo(0, a.h);
+    const pts = [];
+    for (let x = -40; x <= a.w + 40; x += 60) pts.push([x, a.h * base + Math.sin(x * 0.006 * s + s) * a.h * amp + (rnd(x + s) - .5) * a.h * .02]);
+    g.lineTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length - 1; i++) g.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
+    g.lineTo(a.w + 40, a.h); g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+  });
+  // Casa con ventana encendida
+  const hx = a.w * 0.12, hy = a.h * 0.76;
+  g.fillStyle = '#0d0612';
+  g.beginPath(); carve(g, [[hx - 22, hy + 8], [hx - 22, hy - 14], [hx, hy - 32], [hx + 24, hy - 14], [hx + 24, hy + 8]], 4, .1); g.fill();
+  g.beginPath(); carve(g, [[hx + 10, hy - 22], [hx + 10, hy - 36], [hx + 17, hy - 36], [hx + 17, hy - 17]], 2, .1); g.fill();
+  g.fillStyle = '#ffb43a'; g.beginPath(); carve(g, [[hx - 6, hy - 10], [hx + 6, hy - 10], [hx + 6, hy], [hx - 6, hy]], 3, .1); g.fill();
+  // Árboles sin hojas con ramas retorcidas
+  const tree = (tx, ty, s, seed) => {
+    g.strokeStyle = '#0a0510'; g.lineCap = 'round';
+    const branch = (x, y, ang, len, w, d) => {
+      if (d === 0 || len < 3) return;
+      const bend = (rnd(seed + x * .1 + d) - .5) * .8;
+      const ex = x + Math.cos(ang) * len, ey = y + Math.sin(ang) * len;
+      g.lineWidth = w; g.beginPath(); g.moveTo(x, y);
+      g.quadraticCurveTo(x + Math.cos(ang + bend) * len * .6, y + Math.sin(ang + bend) * len * .6, ex, ey); g.stroke();
+      branch(ex, ey, ang - .45 - rnd(seed + d + x) * .3, len * .7, w * .62, d - 1);
+      branch(ex, ey, ang + .4 + rnd(seed + d + y) * .3, len * .66, w * .62, d - 1);
+    };
+    branch(tx, ty, -Math.PI / 2, 34 * s, 7 * s, 6);
+  };
+  tree(a.w * 0.9, a.h * 0.8, a.desk ? 1.2 : .8, 3);
+  tree(a.w * 0.3, a.h * 0.77, a.desk ? .8 : .55, 9);
+  // Suelo de tierra oscura
+  const gr = g.createLinearGradient(0, gy, 0, H);
+  gr.addColorStop(0, '#3b2a14'); gr.addColorStop(1, '#140c06');
+  g.fillStyle = gr; g.fillRect(0, gy, W, H - gy);
+  // Hojas secas esparcidas
+  for (let i = 0; i < Math.floor(a.w / 30); i++){
+    g.fillStyle = ['#b0581a', '#7a3a12', '#c87a2a'][i % 3];
+    g.beginPath(); blob(g, rnd(i + 400) * a.w, gy + 6 + rnd(i + 500) * (a.h - gy - 8), 3.5, 1.8, i, .4, 6); g.fill();
+  }
+  // Lápidas inclinadas en los lados
+  [[a.w * 0.05, -.15], [a.w * 0.95, .12]].forEach(([lx, rot], i) => {
+    g.save(); g.translate(lx, gy + 10); g.rotate(rot);
+    g.fillStyle = '#4a4456';
+    g.beginPath(); g.moveTo(-9, 0); g.lineTo(-9, -18); g.bezierCurveTo(-9, -28, 9, -28, 9, -18); g.lineTo(9, 0); g.closePath(); g.fill();
+    g.fillStyle = '#2e2a38'; g.fillRect(-4, -18, 8, 2); g.fillRect(-4, -13, 6, 2);
+    g.restore();
+  });
+  // Viñeta en otro lienzo, para ponerla encima de todo
+  vig = document.createElement('canvas');
+  vig.width = cv.width; vig.height = cv.height;
+  const v = vig.getContext('2d');
+  v.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const vg = v.createRadialGradient(a.w / 2, a.h / 2, Math.min(a.w, a.h) * 0.35, a.w / 2, a.h / 2, Math.max(a.w, a.h) * 0.8);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.6)');
+  v.fillStyle = vg; v.fillRect(0, 0, W, H);
+}
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.floor(W * DPR); cv.height = Math.floor(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // Tres columnas en ordenador: calabaza, pasillos y tienda
+  const lw = leftW();
+  if (W > 760){
+    $('left').style.right = (W - lw) + 'px';
+    $('mid').style.left = lw + 'px';
+    $('mid').style.width = Math.max(0, W - 340 - lw) + 'px';
+  } else {
+    $('left').style.right = '0';
+  }
+  pumpCache = {};
+  buildBg();
+  placeMenu();
+  renderLanes(true);
+}
+// En ordenador los botones cuelgan de los postes de madera del panel central;
+// en móvil vuelven a la barra de abajo
+const MENU_L = ['btnOpt', 'btnStats', 'btnLog'], MENU_R = ['btnRen', 'btnTree', 'btnMute'];
+function placeMenu(){
+  const midW = W - 340 - leftW();
+  const inMid = W > 760 && midW >= 300;
+  const wide = inMid && midW >= 440;
+  for (const id of MENU_L.concat(MENU_R)){
+    const el = $(id);
+    if (!el) continue;
+    el.classList.toggle('sign', inMid);
+    el.classList.toggle('mb', !inMid);
+    if (inMid) $(MENU_L.includes(id) ? 'postL' : 'postR').appendChild(el);
+    else $('menu').appendChild(el);
+  }
+  // Las noticias van al centro del cartel si cabe
+  const news = $('news');
+  if (wide){ $('newsBox').appendChild(news); news.classList.add('innews'); }
+  else { $('left').insertBefore(news, $('left').firstChild); news.classList.remove('innews'); }
+  $('mid').classList.toggle('nonews', !wide);
+}
+window.addEventListener('resize', resize);
+
+// Partículas y elementos móviles
+let floats = [], chunks = [], rain = [], bats = [], gold = null;
+let rainAcc = 0, batT = 4, pulse = 0, hoverK = 0, mouse = {x: -1, y: -1};
+
+function flash(txt, x, y, color){
+  const b = bigPos();
+  floats.push({x: x ?? b.x, y: y ?? b.y - b.r * 1.3, txt, t: 0, life: 1.6, color: color || '#ffd25a'});
+  if (floats.length > 40) floats.shift();
+}
+
+function drawScene(t){
+  const a = area(), gy = groundY(), b = bigPos();
+  ctx.drawImage(bg, 0, 0, W, H);
+  // Estrellas que parpadean
+  for (let i = 0; i < 60; i++){
+    const tw = REDUCED ? .7 : .5 + .5 * Math.sin(t * (1 + rnd(i) * 2) + i * 3);
+    ctx.fillStyle = 'rgba(255,240,220,' + (0.2 + 0.7 * tw).toFixed(2) + ')';
+    const s = rnd(i + 7) > .85 ? 2.2 : 1.3;
+    ctx.fillRect(rnd(i + 1) * a.w, rnd(i + 101) * a.h * 0.55, s, s);
+  }
+  // Murciélagos en vuelo ondulado
+  for (const bt of bats) bat(ctx, bt.x, bt.base + Math.sin(bt.ph) * bt.amp, bt.s, Math.floor(t * 8 + bt.seed) % 2 === 0);
+  // Brillo girando alrededor de la calabaza de clic: dos capas de rayos en sentidos opuestos
+  {
+    const R = b.r * 2.7;
+    const rg = ctx.createRadialGradient(b.x, b.y, b.r * 0.5, b.x, b.y, R);
+    rg.addColorStop(0, 'rgba(255,215,110,.55)'); rg.addColorStop(0.45, 'rgba(255,160,50,.18)'); rg.addColorStop(1, 'rgba(255,140,40,0)');
+    const spin = REDUCED ? 0 : t;
+    [[0.25, 14, 0.12, 1], [-0.17, 9, 0.2, 0.7]].forEach(([vel, nRays, width, al]) => {
+      // El degradado está en coordenadas de pantalla: se gira alrededor del centro de la calabaza
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(spin * vel); ctx.translate(-b.x, -b.y);
+      ctx.globalAlpha = al;
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      for (let i = 0; i < nRays; i++){
+        const a0 = i / nRays * Math.PI * 2;
+        ctx.moveTo(b.x, b.y);
+        ctx.arc(b.x, b.y, R, a0, a0 + width);
+        ctx.closePath();
+      }
+      ctx.fill();
+      ctx.restore();
+    });
+    // Halo suave que late
+    const pulseHalo = 0.75 + (REDUCED ? 0 : 0.25 * Math.sin(t * 2.2));
+    const hg = ctx.createRadialGradient(b.x, b.y, b.r * 0.4, b.x, b.y, b.r * 1.7);
+    hg.addColorStop(0, 'rgba(255,200,90,' + (0.45 * pulseHalo).toFixed(3) + ')'); hg.addColorStop(1, 'rgba(255,200,90,0)');
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 1.7, 0, Math.PI * 2); ctx.fill();
+  }
+  // Lluvia de calabazas (más cuanto más produces)
+  ctx.globalAlpha = 0.55;
+  for (const p of rain){
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    drawPump(ctx, 0, 0, p.r * 2.2, false);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+  // Hierba en silueta que se mece
+  ctx.strokeStyle = '#1e3a14'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < Math.floor(a.w / 9); i++){
+    const x = i * 9 + rnd(i) * 5, h = 6 + rnd(i + 7) * 12;
+    const sway = REDUCED ? 0 : Math.sin(t * 1.4 + i * 0.35) * 3;
+    ctx.moveTo(x, gy + 3);
+    ctx.quadraticCurveTo(x + sway * .5, gy + 3 - h * .6, x + sway * 1.4, gy + 3 - h);
+  }
+  ctx.stroke();
+  // Calabazas del huerto: crecen con los edificios
+  let nb = 0; for (const bd of BUILD) if (!bd.clic) nb += S.n[bd.id];
+  const count = Math.min(48, 2 + nb);
+  const fr = Math.max(7, Math.min(a.w, H) * 0.028);
+  const field = [];
+  for (let i = 0; i < count; i++){
+    field.push({x: a.w * (0.04 + 0.92 * rnd(i + 3)), y: gy + fr * 1.1 + rnd(i + 77) * Math.max(4, a.h - gy - fr * 2), r: fr * (0.75 + 0.5 * rnd(i + 5)), seed: i * 13 + 1});
+  }
+  field.sort((p, q) => p.y - q.y);
+  for (const p of field){
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath(); ctx.ellipse(p.x, p.y + p.r * .85, p.r * 1.1, p.r * .25, 0, 0, Math.PI * 2); ctx.fill();
+    drawPump(ctx, p.x, p.y, p.r * 2.3, false);
+  }
+  // Calabaza grande que se pulsa
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.beginPath(); ctx.ellipse(b.x, b.y + b.r * 1.02, b.r * 0.9, b.r * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  const sc = (1 + hoverK * 0.05) * (1 - pulse * 0.08);
+  ctx.scale(sc * (1 + pulse * 0.04), sc);
+  drawPump(ctx, 0, 0, b.r * 2.2, false);
+  ctx.restore();
+  // Espantapájaros: rodean la calabaza y la golpean por turnos
+  {
+    const n = Math.min(S.n.espantapajaros, 60);
+    const espLook = ownedLooks(BUILD[0]);
+    const size = Math.max(20, Math.min(44, b.r * 0.36));
+    for (let i = 0; i < n; i++){
+      const ring = i < 30 ? 0 : 1;
+      const inRing = ring ? n - 30 : Math.min(n, 30);
+      const k = ring ? i - 30 : i;
+      const dir = ring ? -1 : 1;
+      const ang = k / inRing * Math.PI * 2 + (REDUCED ? 0 : t * 0.2 * dir);
+      const wave = REDUCED ? 1 : ((t * 0.5 - k / inRing) % 1 + 1) % 1;
+      const poke = wave < 0.06 ? Math.sin(wave / 0.06 * Math.PI) * size * 0.35 : 0;
+      const R = b.r * (ring ? 1.95 : 1.45) - poke;
+      const x = b.x + Math.cos(ang) * R, y = b.y + Math.sin(ang) * R;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(ang + Math.PI / 2);
+      drawSprite(ctx, 'espantapajaros', 0, 0, size, 0, espLook);
+      ctx.restore();
+    }
+  }
+  // Trozos que saltan al cosechar
+  for (const c of chunks){
+    ctx.globalAlpha = Math.max(0, c.life);
+    ctx.fillStyle = c.c;
+    ctx.beginPath(); blob(ctx, c.x, c.y, c.r, c.r * .8, c.seed, .4, 6); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  // Calabaza dorada
+  if (gold){
+    const al = Math.min(1, gold.t * 2, (gold.life - gold.t) * 1.5);
+    const by = REDUCED ? 0 : Math.sin(t * 3) * 4;
+    ctx.globalAlpha = Math.max(0, al);
+    const hg = ctx.createRadialGradient(gold.x, gold.y + by, 4, gold.x, gold.y + by, gold.r * 2.2);
+    hg.addColorStop(0, 'rgba(255,230,120,.55)'); hg.addColorStop(1, 'rgba(255,230,120,0)');
+    ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(gold.x, gold.y + by, gold.r * 2.2, 0, Math.PI * 2); ctx.fill();
+    drawPump(ctx, gold.x, gold.y + by, gold.r * 2.3, true);
+    ctx.globalAlpha = 1;
+  }
+  // Textos flotantes con contorno, rebote y subida
+  ctx.textAlign = 'center';
+  ctx.lineJoin = 'round';
+  for (const f of floats){
+    const k = f.t / f.life;
+    const pop = f.t < .15 ? 0.7 + f.t / .15 * .5 : 1.2 - Math.min(.2, (f.t - .15) * 1.5);
+    ctx.globalAlpha = Math.max(0, 1 - k * k);
+    ctx.font = 'bold ' + Math.round(18 * pop) + 'px system-ui, sans-serif';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(10,4,20,.9)';
+    ctx.strokeText(f.txt, f.x, f.y - f.t * 45);
+    ctx.fillStyle = f.color; ctx.fillText(f.txt, f.x, f.y - f.t * 45);
+  }
+  ctx.globalAlpha = 1;
+  // Tinte dorado durante el frenesí
+  if (hasBuff('frenesi')){
+    ctx.fillStyle = 'rgba(255,170,40,' + (0.05 + (REDUCED ? 0 : 0.03 * Math.sin(t * 4))).toFixed(3) + ')';
+    ctx.fillRect(0, 0, a.w, a.h);
+  }
+  ctx.drawImage(vig, 0, 0, W, H);
+}
+
+// ================= Lógica por tiempo =================
+function tick(dt){
+  const r = rate();
+  if (r > 0) gain(r * dt);
+  pulse = Math.max(0, pulse - dt * 5);
+  const b = bigPos();
+  const hov = Math.hypot(mouse.x - b.x, mouse.y - b.y) < b.r ? 1 : 0;
+  hoverK += (hov - hoverK) * Math.min(1, dt * 10);
+  // Efectos activos
+  for (const bf of S.buffs) bf.left -= dt;
+  S.buffs = S.buffs.filter(bf => bf.left > 0);
+  // Calabaza dorada
+  if (gold){
+    gold.t += dt;
+    if (gold.t >= gold.life) gold = null;
+  } else {
+    S.goldT -= dt;
+    if (S.goldT <= 0) spawnGold();
+  }
+  // Partículas
+  for (const f of floats) f.t += dt;
+  floats = floats.filter(f => f.t < f.life);
+  for (const c of chunks){ c.vy += 900 * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.life -= dt * 1.2; }
+  chunks = chunks.filter(c => c.life > 0);
+  const a = area();
+  if (!REDUCED){
+    rainAcc += dt * Math.min(6, Math.log10(r + 1) * 1.1);
+    while (rainAcc > 1 && rain.length < 22){
+      rainAcc -= 1;
+      rain.push({x: Math.random() * a.w, y: -20, vy: 60 + Math.random() * 60, r: 6 + Math.random() * 6, seed: Math.random() * 1000, rot: Math.random() * 6, vr: (Math.random() - .5) * 2});
+    }
+    if (rainAcc > 1) rainAcc = 1;
+    batT -= dt;
+    if (batT <= 0){
+      batT = 6 + Math.random() * 10;
+      const dir = Math.random() < .5 ? 1 : -1;
+      bats.push({x: dir > 0 ? -30 : a.w + 30, vx: dir * (70 + Math.random() * 60), base: a.h * (0.12 + Math.random() * 0.3), amp: 10 + Math.random() * 20, ph: 0, s: .8 + Math.random() * .6, seed: Math.floor(Math.random() * 10)});
+    }
+  }
+  for (const p of rain){ p.y += p.vy * dt; p.rot += p.vr * dt; }
+  rain = rain.filter(p => p.y < groundY() + 10);
+  for (const bt of bats){ bt.x += bt.vx * dt; bt.ph += dt * 3; }
+  bats = bats.filter(bt => bt.x > -60 && bt.x < a.w + 60);
+}
+
+function spawnGold(){
+  const a = area();
+  gold = {x: a.w * (0.12 + Math.random() * 0.76), y: a.h * (0.2 + Math.random() * 0.55), r: 26, t: 0, life: (sk('brillo') ? 26 : 13) * fxM('goldLife')};
+  S.goldT = (60 + Math.random() * 90) * (S.up.g1 ? 0.5 : 1) * (sk('ojo') ? 0.8 : 1) * fxM('goldFreq');
+}
+
+function clickGold(){
+  const dur = S.up.g2 ? 2 : 1;
+  const roll = Math.random();
+  const gx = gold.x, gy = gold.y;
+  gold = null;
+  S.goldClicks++;
+  SND.oro();
+  const addBuff = (id, secs) => {
+    S.buffs = S.buffs.filter(b => b.id !== id);
+    S.buffs.push({id, left: secs * dur, dur: secs * dur});
+  };
+  if (roll < 0.45){
+    const v = (Math.min(S.cal * 0.15, rate(true) * 900) + 13) * (sk('midas') ? 2 : 1) * fxM('fortuna');
+    gain(v);
+    flash('¡Fortuna! +' + fmt(v), gx, gy, '#fff1a8');
+    toast('¡Fortuna!', 'Ganas ' + fmt(v) + ' calabazas.');
+  } else if (roll < 0.85){
+    const x = frenzyX();
+    addBuff('frenesi', 60);
+    flash('¡Frenesí! x' + x, gx, gy, '#fff1a8');
+    toast('¡Frenesí!', 'Producción x' + x + ' durante ' + (60 * dur) + ' s.');
+  } else {
+    const secs = (sk('furia') ? 19.5 : 13) + fxA('furia');
+    addBuff('furia', secs);
+    flash('¡Furia de cosecha! x10', gx, gy, '#fff1a8');
+    toast('¡Furia de cosecha!', 'Los clics valen x10 durante ' + Math.round(secs * dur) + ' s.');
+  }
+  if (Math.random() < (sk('lluvia') ? 0.2 : 0) + fxA('goldChain')) S.goldT = 1.5;
+  for (let i = 0; i < 14; i++) chunks.push({x: gx, y: gy, vx: (Math.random() - .5) * 400, vy: -150 - Math.random() * 250, r: 3 + Math.random() * 3, life: 1, seed: Math.random() * 99, c: '#ffe27a'});
+}
+
+function clickBig(x, y){
+  let v = clickValue();
+  const crit = Math.random() < (sk('critico') ? 0.05 : 0) + fxA('crit');
+  if (crit) v *= 10 * fxM('critX');
+  gain(v);
+  S.clicks++;
+  S.clickEarned += v;
+  pulse = 1;
+  SND.clic();
+  if (crit){ flash('¡Crítico! +' + fmtR(v), x, y - 30, '#ff9a6a'); tone(1200, 600, 0.15, 'square', 0.05); }
+  else flash('+' + fmtR(v), x + (Math.random() - .5) * 20, y - 10);
+  if (!REDUCED){
+    for (let i = 0; i < 5; i++) chunks.push({x, y, vx: (Math.random() - .5) * 260, vy: -120 - Math.random() * 200, r: 2 + Math.random() * 3, life: 1, seed: Math.random() * 99, c: Math.random() < .5 ? '#ff8a1f' : '#e8650a'});
+    if (chunks.length > 120) chunks.splice(0, chunks.length - 120);
+  }
+}
+
+// ================= Entrada =================
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  getAC();
+  const x = e.clientX, y = e.clientY;
+  if (gold && Math.hypot(x - gold.x, y - gold.y) < gold.r * 1.4){ clickGold(); return; }
+  const b = bigPos();
+  if (Math.hypot(x - b.x, y - b.y) < b.r * 1.05) clickBig(x, y);
+});
+cv.addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; cv.style.cursor = Math.hypot(e.clientX - bigPos().x, e.clientY - bigPos().y) < bigPos().r || (gold && Math.hypot(e.clientX - gold.x, e.clientY - gold.y) < gold.r * 1.4) ? 'pointer' : 'default'; });
+cv.addEventListener('pointerleave', () => { mouse.x = mouse.y = -1; });
+document.addEventListener('keydown', e => {
+  if (typeof treeOpen !== 'undefined' && treeOpen) return;
+  if (e.code === 'Escape') { cerrarModal(); return; }
+  if (e.code !== 'Space' || e.repeat) return;
+  if (e.target && e.target.closest && e.target.closest('button, a, input')) return;
+  e.preventDefault();
+  getAC();
+  const b = bigPos();
+  clickBig(b.x, b.y);
+});
+let lastPtr = 'mouse';
+document.addEventListener('pointerdown', e => { lastPtr = e.pointerType || 'mouse'; }, true);
+
+// ================= Tienda =================
+const COIN = '<span class="coin"></span>';
+function buyBuilding(b){
+  const k = S.buyN, c = bulkCost(b, k);
+  if (S.cal < c){ SND.no(); return; }
+  S.cal -= c; S.n[b.id] += k;
+  SND.compra();
+  saveSoon();
+  if (b.el){ b.el.classList.remove('bought'); void b.el.offsetWidth; b.el.classList.add('bought'); }
+  updateUI();
+}
+let selUp = null;
+function buyUp(u, el){
+  // En pantallas táctiles el primer toque enseña la ayuda y el segundo compra
+  if (lastPtr === 'touch' && selUp !== u){
+    selUp = u;
+    document.querySelectorAll('.up.sel').forEach(n => n.classList.remove('sel'));
+    el.classList.add('sel');
+    showTip(el, () => tipUp(u));
+    return;
+  }
+  if (S.up[u.id]) return;
+  if (S.cal < upCost(u)){ SND.no(); return; }
+  S.cal -= upCost(u); S.up[u.id] = true;
+  selUp = null; hideTip();
+  SND.mejora();
+  saveSoon();
+  flash('Mejora: ' + u.nombre);
+  if (u.look) toast('Nuevo aspecto', u.nombre + '.');
+  updateUI();
+}
+
+// Fila de un edificio en la tienda
+function addRow(b){
+  const el = document.createElement('button');
+  el.className = 'row';
+  el.insertAdjacentHTML('beforeend', '<span class="ic"></span><span class="tx"><span class="nm"></span><span class="sub"></span></span><span class="cnt"></span>');
+  el.ic = el.querySelector('.ic'); el.nm = el.querySelector('.nm'); el.sub = el.querySelector('.sub'); el.cnt = el.querySelector('.cnt');
+  el.onclick = () => { if (!el.classList.contains('mys')) buyBuilding(b); };
+  el.onmouseenter = () => { if (!el.classList.contains('mys')) showTip(el, () => tipBuild(b)); };
+  el.onmouseleave = hideTip;
+  b.el = el; b.iconLook = -1;
+  $('bld').appendChild(el);
+}
+function refreshIcon(b){
+  const look = ownedLooks(b);
+  if (b.iconLook === look) return;
+  b.iconLook = look;
+  b.el.ic.innerHTML = '';
+  b.el.ic.appendChild(spriteIcon(b.spr, null, b.hue, look));
+}
+function buildStore(){
+  for (const b of BUILD) addRow(b);
+  document.querySelectorAll('#bulk button').forEach(btn => {
+    btn.onclick = () => {
+      S.buyN = +btn.dataset.n;
+      document.querySelectorAll('#bulk button').forEach(o => o.classList.toggle('on', o === btn));
+      updateUI();
+    };
+  });
+}
+
+let upKey = '';
+function renderUps(){
+  const list = availableUps();
+  const key = list.map(u => u.id).join(',');
+  if (key !== upKey){
+    upKey = key;
+    const box = $('ups');
+    box.innerHTML = '';
+    if (!list.length) box.innerHTML = '<div class="empty">Sigue cosechando para descubrir mejoras.</div>';
+    for (const u of list){
+      const el = document.createElement('button');
+      el.className = 'up' + (u.look ? ' look' : '');
+      el.style.setProperty('--tc', u.badge || tierColor(u.tier));
+      el.setAttribute('aria-label', u.nombre);
+      el.appendChild(spriteIcon(u.icono, u.look ? null : u.tier, u.hue, u.look, u.badge));
+      el.onclick = () => buyUp(u, el);
+      el.onmouseenter = () => { if (lastPtr !== 'touch') showTip(el, () => tipUp(u)); };
+      el.onmouseleave = () => { if (lastPtr !== 'touch') hideTip(); };
+      u.el = el;
+      box.appendChild(el);
+    }
+  }
+  for (const u of list) if (u.el) u.el.classList.toggle('no', S.cal < upCost(u));
+  $('upsN').textContent = list.length ? list.length : '';
+}
+
+// Ayuda flotante con datos en vivo
+let tipFn = null, tipEl = null;
+function showTip(el, fn){
+  tipFn = fn; tipEl = el;
+  const tip = $('tip');
+  tip.innerHTML = fn();
+  tip.style.display = 'block';
+  if (W > 760){
+    const r = el.getBoundingClientRect();
+    tip.style.top = Math.max(8, Math.min(H - tip.offsetHeight - 8, r.top)) + 'px';
+  }
+}
+function hideTip(){ tipFn = null; tipEl = null; $('tip').style.display = 'none'; }
+function priceLine(c){ return '<div class="c' + (S.cal < c ? ' no' : '') + '">' + COIN + fmt(c) + '</div>'; }
+function tipBuild(b){
+  const k = S.buyN, c = bulkCost(b, k);
+  const look = ownedLooks(b);
+  const head = '<h4>' + b.nombre + (k > 1 ? ' <small>x' + k + '</small>' : '') + '</h4>' +
+    (look ? '<div class="tag">Aspecto ' + lookDef(look).nombre.toLowerCase() + '</div>' : '') +
+    priceLine(c) + '<p>' + b.desc + '</p>';
+  const next = 50 * (look + 1);
+  const foot = '<p><small>Siguiente aspecto: con ' + next + ' (tienes ' + S.n[b.id] + ').</small></p>';
+  if (b.clic){
+    const per = espPer();
+    return head + '<p><small>Cada uno suma <b>+' + fmtR(per) + '</b> por clic.<br>' +
+      S.n[b.id] + ' suman +' + fmtR(per * S.n[b.id]) + ' por clic. No producen por segundo.</small></p>' + foot;
+  }
+  const one = bProd(b) * globalMult();
+  const tot = one * S.n[b.id], all = rate();
+  return head + '<p><small>Cada uno produce <b>' + fmtR(one) + '</b> por segundo.<br>' +
+    S.n[b.id] + ' producen ' + fmtR(tot) + ' por segundo' + (all > 0 ? ' (' + Math.round(tot / all * 100) + ' % del total)' : '') + '.</small></p>' + foot;
+}
+function tipUp(u){
+  return '<h4>' + u.nombre + '</h4>' + priceLine(upCost(u)) +
+    '<p>' + u.desc + '</p>' + (lastPtr === 'touch' ? '<p><small>Toca otra vez para comprar.</small></p>' : '');
+}
+
+// ================= Avisos y logros =================
+function toast(title, body){
+  const box = $('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = '<b></b><span></span>';
+  el.querySelector('b').textContent = title;
+  el.querySelector('span').textContent = body;
+  el.onclick = () => el.remove();
+  box.appendChild(el);
+  while (box.children.length > 4) box.firstChild.remove();
+  setTimeout(() => el.remove(), 6000);
+}
+const LOGRO_TITLES = {cl:'Clics', to:'Cosecha total', ra:'Producción', go:'Calabazas doradas', re:'Renacer', up:'Mejoras'};
+function checkLogros(){
+  let any = false;
+  for (const c of logroCats()){
+    let k = logroDone(c);
+    for (let guard = 0; guard < 50 && c.val() >= c.thr(k); guard++, k++){
+      S.logros[c.id(k)] = true;
+      toast('Logro desbloqueado', c.nombre(k) + ': ' + c.desc(c.thr(k)));
+      any = true;
+    }
+  }
+  if (any) SND.logro();
+}
+
+// Noticias que cambian según tu progreso
+let newsT = 0;
+function nextNews(){
+  const opts = NEWS.map(f => f()).filter(Boolean);
+  const el = $('news');
+  el.style.opacity = 0;
+  setTimeout(() => { el.textContent = opts[Math.floor(Math.random() * opts.length)]; el.style.opacity = 1; }, REDUCED ? 0 : 450);
+}
+
+// ================= Ventanas =================
+let modalKind = null;
+function abrirModal(kind){
+  if (kind === 'tree'){ openTree(); return; }
+  modalKind = kind; $('modal').style.display = 'flex'; SND.abrir(); renderModal();
+}
+function cerrarModal(){ modalKind = null; $('modal').style.display = 'none'; $('mBody').innerHTML = ''; }
+function btn(txt, fn, cls, dis){
+  const b = document.createElement('button');
+  b.textContent = txt; b.onclick = fn;
+  if (cls) b.className = cls;
+  b.disabled = !!dis;
+  return b;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c]));
+function stat(label, value, big){ return '<div class="st' + (big ? ' big' : '') + '"><span>' + label + '</span><b>' + value + '</b></div>'; }
+function bar(p){ return '<div class="bar"><i style="width:' + Math.max(0, Math.min(100, p)).toFixed(1) + '%"></i></div>'; }
+
+function renderModal(){
+  if (!modalKind) return;
+  const title = $('mTitle'), body = $('mBody'), acts = $('mActs');
+  const card = $('modal').querySelector('.card');
+  card.dataset.kind = modalKind;
+  acts.innerHTML = '';
+  if (modalKind === 'stats'){
+    title.textContent = 'Estadísticas';
+    let nb = 0; for (const b of BUILD) nb += S.n[b.id];
+    const all = rate();
+    let rows = '';
+    for (const b of BUILD){
+      if (b.clic || !S.n[b.id]) continue;
+      const v = bProd(b) * S.n[b.id] * globalMult();
+      const pct = all > 0 ? v / all * 100 : 0;
+      rows += '<div class="brow"><span class="bi" data-b="' + b.id + '"></span><span class="bn">' + esc(b.nombre) + ' <small>x' + S.n[b.id] + '</small></span>' + bar(pct) + '<span class="bp">' + Math.round(pct) + ' %</span></div>';
+    }
+    body.innerHTML =
+      '<div class="sec">Ahora</div><div class="grid">' +
+        stat('Calabazas', fmt(S.cal), true) + stat('Por segundo', fmtR(rate()), true) + stat('Por clic', fmtR(clickValue()), true) + '</div>' +
+      '<div class="sec">Esta vuelta</div><div class="grid">' +
+        stat('Cosechadas', fmt(S.run)) + stat('Tiempo', fmtT((Date.now() - S.runStart) / 1000)) + stat('Edificios', fmt(nb)) + '</div>' +
+      '<div class="sec">Para siempre</div><div class="grid">' +
+        stat('Total cosechado', fmt(S.total)) + stat('Clics', fmt(S.clicks)) + stat('A mano', fmt(S.clickEarned)) +
+        stat('Doradas', fmt(S.goldClicks)) + stat('Mejoras', fmt(Object.keys(S.up).length)) + stat('Logros', fmt(nLogros())) +
+        stat('Semillas', fmt(S.eternas)) + stat('Renaces', fmt(S.renaces)) + stat('Multiplicador', 'x' + globalMult().toLocaleString('es-ES', {maximumFractionDigits: 2})) + '</div>' +
+      (rows ? '<div class="sec">De dónde sale tu producción</div>' + rows : '');
+    body.querySelectorAll('.bi').forEach(sp => {
+      const b = BUILD.find(x => x.id === sp.dataset.b);
+      if (b) sp.appendChild(spriteIcon(b.spr, null, b.hue, ownedLooks(b)));
+    });
+  } else if (modalKind === 'logros'){
+    const per = 1 + ownedChain('k');
+    title.textContent = 'Logros';
+    const cats = logroCats();
+    body.innerHTML =
+      '<div class="hero"><b>' + fmt(nLogros()) + '</b><span>logros conseguidos</span><span class="pill">+' + fmt(per * nLogros()) + ' % de producción</span></div>' +
+      '<p class="hint">Cada logro da +' + per + ' %. No tienen fin: siempre hay uno más.</p>' +
+      '<div id="lgInfo" class="lginfo">Pasa el ratón o toca un logro.</div><div id="lgList"></div>';
+    const list = $('lgList');
+    for (const c of cats){
+      const done = logroDone(c);
+      if (!done && c.p === 'b' && !c.val()) continue;
+      const sec = document.createElement('div');
+      sec.className = 'lgsec';
+      sec.innerHTML = '<div class="lgh"><span>' + esc(c.title) + '</span><small>' + done + '</small></div>';
+      const grid = document.createElement('div');
+      grid.className = 'lg';
+      for (let k = 0; k <= done; k++){
+        const d = document.createElement('div');
+        const ok = k < done;
+        if (ok){ d.className = 'ok'; d.appendChild(spriteIcon('oro')); } else d.textContent = '?';
+        const info = () => {
+          $('lgInfo').innerHTML = (ok ? '<b>' + esc(c.nombre(k)) + '</b>' : '<b>Próximo logro</b>') + ' · ' + esc(c.desc(c.thr(k))) +
+            (ok ? '' : bar(Math.min(100, c.val() / c.thr(k) * 100)));
+        };
+        d.onmouseenter = info; d.onclick = info;
+        grid.appendChild(d);
+      }
+      sec.appendChild(grid);
+      list.appendChild(sec);
+    }
+  } else if (modalKind === 'ren'){
+    title.textContent = 'Renacer';
+    const g = gananciaRenacer();
+    const need = Math.pow(g + 1, 2) * 1e6, prev = Math.pow(g, 2) * 1e6;
+    const pct = (S.run - prev) / (need - prev) * 100;
+    body.innerHTML =
+      '<div class="seeds"><div><span>Tienes</span><b>' + fmt(S.eternas) + '</b><small>semillas</small></div>' +
+        '<div class="arrow">+' + fmt(g) + '</div>' +
+        '<div class="after"><span>Después</span><b>' + fmt(S.eternas + g) + '</b><small>semillas</small></div></div>' +
+      '<p class="hint">Cada semilla eterna da +2 % de producción y de clic, para siempre.</p>' +
+      '<div class="sec">Siguiente semilla</div>' + bar(pct) +
+      '<p class="hint">' + fmt(S.run) + ' de ' + fmt(need) + ' calabazas en esta vuelta.</p>' +
+      '<div class="keep"><div><b>Pierdes</b><span>✗ Calabazas</span><span>✗ Edificios</span><span>✗ Mejoras</span></div>' +
+        '<div><b>Conservas</b><span>✓ Logros</span><span>✓ Semillas eternas</span><span>✓ Estadísticas totales</span></div></div>';
+    acts.appendChild(btn('Abrir el árbol (' + fmt(S.chips) + ' para gastar)', () => abrirModal('tree')));
+    acts.appendChild(btn(g < 1 ? 'Aún no puedes renacer' : 'Renacer y ganar ' + fmt(g), () => { renacer(); abrirModal('tree'); }, 'danger', g < 1));
+  } else if (modalKind === 'opt'){
+    title.textContent = 'Opciones';
+    body.innerHTML =
+      '<div class="sec">Sonido</div>' +
+      '<div class="opt"><span>Sonido general</span><button id="oMute" class="tog' + (S.mute ? '' : ' on') + '">' + (S.mute ? 'Apagado' : 'Encendido') + '</button></div>' +
+      '<div class="opt"><span>Efectos</span><input id="oSfx" type="range" min="0" max="100" value="' + Math.round(S.sfxVol * 100) + '" aria-label="Volumen de efectos"></div>' +
+      '<div class="opt"><span>Música</span><button id="oMus" class="tog' + (S.music ? ' on' : '') + '">' + (S.music ? 'Encendida' : 'Apagada') + '</button></div>' +
+      '<div class="opt"><span>Volumen de música</span><input id="oMusV" type="range" min="0" max="100" value="' + Math.round(S.musVol * 100) + '" aria-label="Volumen de música"></div>' +
+      '<div class="sec">Autoguardado</div>' +
+      '<p class="hint">Se guarda solo cada pocos segundos, al comprar, al cambiar de pestaña y al cerrar. Cada 5 minutos se hace además una copia de seguridad.' +
+        (sk('nocturna') ? ' Al volver recibes todo lo producido (hasta 72 horas).' : ' Al volver recibes la mitad de lo producido (hasta 24 horas).') + '</p>' +
+      '<div class="opt"><span>Guardar cada</span><span class="row2" id="oEvery"></span></div>' +
+      '<p class="hint" id="oLast"></p>' +
+      '<div class="sec">Partida</div>' +
+      '<div class="row2" id="oSave"></div>' +
+      '<textarea id="oCode" placeholder="Aquí aparece tu código de partida, o pega uno para cargarlo." aria-label="Código de partida"></textarea>' +
+      '<div class="sec">Cómo jugar</div>' +
+      '<p class="hint">Pulsa la calabaza o la barra espaciadora. Los espantapájaros suben el clic; el resto de edificios produce solo. Cada 50 de un edificio desbloqueas un aspecto nuevo. Atento a las calabazas doradas.</p>';
+    $('oMute').onclick = () => { getAC(); toggleMute(); renderModal(); };
+    $('oMus').onclick = () => { S.music = !S.music; if (S.music) getAC(); else stopMusic(); save(); renderModal(); };
+    $('oSfx').oninput = e => { S.sfxVol = e.target.value / 100; getAC(); applyVol(); };
+    $('oSfx').onchange = () => { SND.clic(); save(); };
+    $('oMusV').oninput = e => { S.musVol = e.target.value / 100; getAC(); applyVol(); };
+    $('oMusV').onchange = save;
+    const every = $('oEvery');
+    [5, 10, 30, 60].forEach(s => every.appendChild(btn(s + ' s', () => { S.saveEvery = s; save(); renderModal(); }, 'tog' + (S.saveEvery === s ? ' on' : ''))));
+    const bk = backupInfo();
+    $('oLast').textContent = 'Último guardado: ' + new Date(S.lastSave).toLocaleTimeString('es-ES') +
+      (bk ? ' · Copia de seguridad: ' + new Date(bk.backupAt).toLocaleTimeString('es-ES') : '');
+    const row = $('oSave');
+    row.appendChild(btn('Guardar ahora', () => { save(); toast('Guardado', 'Tu granja está a salvo.'); renderModal(); }));
+    if (bk) row.appendChild(btn('Volver a la copia', () => {
+      if (!confirm('Vuelves a la copia de las ' + new Date(bk.backupAt).toLocaleTimeString('es-ES') + '. Lo hecho después se pierde. ¿Seguir?')) return;
+      try { localStorage.setItem(KEY, JSON.stringify(Object.assign(bk, {lastSave: Date.now()}))); noSave = true; location.reload(); } catch (e) { toast('Error', 'No se pudo cargar la copia.'); }
+    }));
+    row.appendChild(btn('Exportar', () => {
+      save();
+      try { $('oCode').value = btoa(unescape(encodeURIComponent(JSON.stringify(S)))); $('oCode').select(); toast('Código listo', 'Cópialo y guárdalo donde quieras.'); }
+      catch (e) { toast('Error', 'No se pudo exportar.'); }
+    }));
+    row.appendChild(btn('Importar', () => {
+      const code = $('oCode').value.trim();
+      if (!code){ toast('Falta el código', 'Pega un código en el cuadro.'); return; }
+      try {
+        const o = JSON.parse(decodeURIComponent(escape(atob(code))));
+        if (!o || typeof o !== 'object' || !o.n) throw new Error('mal');
+        if (!confirm('Esto sustituye tu partida actual por la del código. ¿Seguir?')) return;
+        localStorage.setItem(KEY, JSON.stringify(Object.assign(o, {lastSave: Date.now()})));
+        noSave = true; location.reload();
+      } catch (e) { toast('Código no válido', 'Revisa que esté completo.'); }
+    }));
+    row.appendChild(btn('Borrar partida', () => {
+      if (confirm('¿Seguro? Se borra todo tu progreso de la granja y no se puede deshacer.')){
+        const keepAudio = {mute: S.mute, sfxVol: S.sfxVol, musVol: S.musVol, music: S.music};
+        S = Object.assign(newState(), keepAudio); upKey = ''; save(); cerrarModal(); updateUI(); toast('Partida borrada', 'Empiezas de cero.');
+      }
+    }, 'danger'));
+  }
+}
+
+// Ficha de una rama del árbol, con su botón de compra
+function skInfo(s){
+  const box = $('skInfo');
+  if (!box) return;
+  const owned = sk(s.id), open = skillOpen(s), cost = skillCost(s);
+  const reqTxt = s.req.length ? 'Necesita: ' + s.req.map(r => skillById(r).nombre).join(', ') + '.' : '';
+  let state;
+  if (owned && !s.rep) state = '<span class="ok">✓ Comprada</span>';
+  else if (!open) state = '<span class="no">🔒 ' + esc(reqTxt) + '</span>';
+  else state = '<span class="' + (S.chips >= cost ? 'ok' : 'no') + '">Precio: ' + fmt(cost) + ' semillas</span>';
+  box.innerHTML = '<b>' + esc(s.nombre) + (s.rep ? ' · nivel ' + repLv(s) : '') + '</b><p>' + esc(s.desc) + '</p>' + state;
+  if (open && (s.rep || !owned)){
+    const b = btn(S.chips >= cost ? 'Comprar' : 'Te faltan semillas', () => { if (buySkill(s)){ if (treeOpen) renderTree(); else renderModal(); skInfo(s); } }, '', S.chips < cost);
+    box.appendChild(b);
+  }
+}
+
+// ================= Árbol a pantalla completa =================
+// La vista avanza hacia donde está el ratón y las ramas se funden cuanto más lejos del centro
+const TCW = 170, TCH = 140;
+// Límites del árbol (se calculan de las ramas, así crece solo si se añaden más)
+const TB = SKILLS.reduce((a, s) => ({x0: Math.min(a.x0, s.x), x1: Math.max(a.x1, s.x), y0: Math.min(a.y0, s.y), y1: Math.max(a.y1, s.y)}), {x0: 0, x1: 0, y0: 0, y1: 0});
+const TOFF_X = (-TB.x0 + 1) * TCW, TOFF_Y = (-TB.y0 + 1) * TCH;
+const TSVG_W = (TB.x1 - TB.x0 + 2) * TCW, TSVG_H = (TB.y1 - TB.y0 + 2) * TCH;
+let treeOpen = false, cam = {x: 0, y: TCH * 0.5}, camT = null, tMouse = {x: -1, y: -1, ui: false}, tDrag = null, tLast = 0;
+const tKeys = {};
+function nodeWorld(s){ return {x: s.x * TCW, y: s.y * TCH}; }
+function openTree(){
+  cerrarModal();
+  treeOpen = true;
+  const fs = $('treeFs');
+  fs.classList.add('open');
+  fs.setAttribute('aria-hidden', 'false');
+  cam = {x: 0, y: TCH * 0.5}; camT = null;
+  tMouse = {x: W / 2, y: H / 2, ui: false};
+  renderTree();
+  SND.abrir();
+  tLast = performance.now();
+  requestAnimationFrame(treeLoop);
+}
+function closeTree(){
+  treeOpen = false;
+  $('treeFs').classList.remove('open');
+  $('treeFs').setAttribute('aria-hidden', 'true');
+}
+function renderTree(){
+  // Líneas entre ramas
+  let lines = '';
+  for (const s of SKILLS) for (const r of s.req){
+    const p = skillById(r), a = nodeWorld(p), b = nodeWorld(s);
+    const cls = sk(r) && sk(s.id) ? 'on' : sk(r) ? 'open' : '';
+    lines += '<line x1="' + (a.x + TOFF_X) + '" y1="' + (a.y + TOFF_Y) + '" x2="' + (b.x + TOFF_X) + '" y2="' + (b.y + TOFF_Y) + '" class="' + cls + '"/>';
+  }
+  $('tLines').innerHTML = lines;
+  $('tLines').style.width = TSVG_W + 'px'; $('tLines').style.height = TSVG_H + 'px';
+  $('tLines').style.left = -TOFF_X + 'px'; $('tLines').style.top = -TOFF_Y + 'px';
+  // Ramas
+  const box = $('tNodes');
+  box.innerHTML = '';
+  for (const s of SKILLS){
+    const owned = sk(s.id), open = skillOpen(s), cost = skillCost(s);
+    const cls = (owned && !s.rep) ? 'own' : !open ? 'lock' : S.chips >= cost ? 'can' : 'open';
+    const p = nodeWorld(s);
+    const el = document.createElement('button');
+    el.className = 'tnode ' + cls + (owned ? ' own' : '');
+    el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
+    el.setAttribute('aria-label', s.nombre);
+    el.appendChild(spriteIcon(s.icono, null, s.hue || 0, s.look || 0));
+    el.insertAdjacentHTML('beforeend', '<span class="tl"></span>' + (s.rep && repLv(s) ? '<em>' + repLv(s) + '</em>' : ''));
+    el.querySelector('.tl').textContent = s.nombre;
+    el.onmouseenter = () => skInfo(s);
+    el.onclick = () => { skInfo(s); camT = {x: p.x, y: p.y}; };
+    el.wx = p.x; el.wy = p.y;
+    box.appendChild(el);
+  }
+  $('tStats').innerHTML =
+    '<div><span>Semillas para gastar</span><b>' + fmt(S.chips) + '</b></div>' +
+    '<div><span>Bonus del árbol</span><b>x' + skillMult().toLocaleString('es-ES', {maximumFractionDigits: 2}) + '</b></div>' +
+    '<div><span>Ramas</span><b>' + Object.keys(S.skills).length + ' / ' + SKILLS.length + '</b></div>';
+}
+// Minimapa: todas las ramas en pequeño y un recuadro con lo que ves; pulsa para ir
+const MM_W = 190, MM_H = 150;
+function mmScale(){
+  const sx = (MM_W - 16) / ((TB.x1 - TB.x0) * TCW), sy = (MM_H - 16) / ((TB.y1 - TB.y0) * TCH);
+  return Math.min(sx, sy);
+}
+function mmPos(wx, wy){
+  const k = mmScale();
+  const cw = (TB.x1 - TB.x0) * TCW * k, ch = (TB.y1 - TB.y0) * TCH * k;
+  return {x: (MM_W - cw) / 2 + (wx - TB.x0 * TCW) * k, y: (MM_H - ch) / 2 + (wy - TB.y0 * TCH) * k};
+}
+function drawMinimap(){
+  const c = $('tMini');
+  if (!c || !c.getContext) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  if (c.width !== MM_W * dpr){ c.width = MM_W * dpr; c.height = MM_H * dpr; }
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, MM_W, MM_H);
+  g.strokeStyle = 'rgba(155,120,200,.35)'; g.lineWidth = 1;
+  g.beginPath();
+  for (const s of SKILLS) for (const r of s.req){
+    const a = mmPos(SKILL_MAP[r].x * TCW, SKILL_MAP[r].y * TCH), b = mmPos(s.x * TCW, s.y * TCH);
+    g.moveTo(a.x, a.y); g.lineTo(b.x, b.y);
+  }
+  g.stroke();
+  for (const s of SKILLS){
+    const p = mmPos(s.x * TCW, s.y * TCH);
+    const owned = sk(s.id), open = skillOpen(s);
+    g.fillStyle = owned ? '#ffd25a' : !open ? '#4a3a5a' : S.chips >= skillCost(s) ? '#9be37a' : '#8a6ab0';
+    g.fillRect(p.x - 2.5, p.y - 2.5, 5, 5);
+  }
+  const k = mmScale();
+  const v = mmPos(cam.x - W / 2, cam.y - H / 2);
+  g.strokeStyle = '#ffe9c4'; g.lineWidth = 1.5;
+  g.strokeRect(v.x, v.y, W * k, H * k);
+}
+
+function treeLoop(now){
+  if (!treeOpen) return;
+  const dt = Math.max(0, Math.min(0.05, (now - tLast) / 1000));
+  tLast = now;
+  // Avanzar hacia el ratón: zona muerta en el centro, más rápido cerca del borde
+  if (!tDrag && !tMouse.ui && tMouse.x >= 0){
+    const nx = (tMouse.x - W / 2) / (W / 2), ny = (tMouse.y - H / 2) / (H / 2);
+    const push = v => { const a = Math.abs(v); return a < 0.3 ? 0 : Math.sign(v) * Math.pow((a - 0.3) / 0.7, 2); };
+    const vx = push(nx), vy = push(ny);
+    if (vx || vy){ camT = null; cam.x += vx * 700 * dt; cam.y += vy * 700 * dt; }
+  }
+  // Teclado
+  const kx = (tKeys.ArrowRight ? 1 : 0) - (tKeys.ArrowLeft ? 1 : 0), ky = (tKeys.ArrowDown ? 1 : 0) - (tKeys.ArrowUp ? 1 : 0);
+  if (kx || ky){ camT = null; cam.x += kx * 500 * dt; cam.y += ky * 500 * dt; }
+  // Ir suavemente a la rama pulsada
+  if (camT){
+    const k = Math.min(1, dt * (REDUCED ? 30 : 6));
+    cam.x += (camT.x - cam.x) * k; cam.y += (camT.y - cam.y) * k;
+    if (Math.hypot(camT.x - cam.x, camT.y - cam.y) < 1) camT = null;
+  }
+  cam.x = Math.max((TB.x0 - 0.5) * TCW, Math.min((TB.x1 + 0.5) * TCW, cam.x));
+  cam.y = Math.max((TB.y0 - 0.5) * TCH, Math.min((TB.y1 + 0.5) * TCH, cam.y));
+  const ox = W / 2 - cam.x, oy = H / 2 - cam.y;
+  $('tWorld').style.transform = 'translate(' + ox.toFixed(1) + 'px,' + oy.toFixed(1) + 'px)';
+  drawMinimap();
+  $('treeFs').style.backgroundPosition = (-cam.x * 0.25).toFixed(1) + 'px ' + (-cam.y * 0.25).toFixed(1) + 'px, ' + (-cam.x * 0.5).toFixed(1) + 'px ' + (-cam.y * 0.5).toFixed(1) + 'px, 0 0';
+  // Fundido: cuanto más lejos del centro de la pantalla, más transparente y pequeño
+  const R = 0.5 * Math.hypot(W, H);
+  for (const el of $('tNodes').children){
+    const d = Math.hypot(el.wx - cam.x, el.wy - cam.y) / R;
+    const op = Math.max(0.04, 1 - d * d * 1.5);
+    el.style.opacity = op.toFixed(3);
+    el.style.transform = 'translate(-50%,-50%) scale(' + (1 - Math.min(0.35, d * 0.3)).toFixed(3) + ')';
+  }
+  requestAnimationFrame(treeLoop);
+}
+(function bindTree(){
+  const fs = $('treeFs');
+  fs.addEventListener('pointermove', e => {
+    tMouse.x = e.clientX; tMouse.y = e.clientY;
+    tMouse.ui = !!(e.target.closest && e.target.closest('.tfui'));
+    if (tDrag){
+      cam.x = tDrag.cx - (e.clientX - tDrag.x);
+      cam.y = tDrag.cy - (e.clientY - tDrag.y);
+      if (Math.abs(e.clientX - tDrag.x) + Math.abs(e.clientY - tDrag.y) > 6) tDrag.moved = true;
+    }
+  });
+  fs.addEventListener('pointerleave', () => { tMouse.x = -1; });
+  fs.addEventListener('pointerdown', e => {
+    if (e.target.closest && e.target.closest('.tfui, .tnode')) return;
+    tDrag = {x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y};
+    camT = null;
+  });
+  window.addEventListener('pointerup', () => { tDrag = null; });
+  fs.addEventListener('wheel', e => { e.preventDefault(); camT = null; cam.x += e.deltaX * 0.8; cam.y += e.deltaY * 0.8; }, {passive: false});
+  $('tClose').onclick = closeTree;
+  $('tMini').addEventListener('pointerdown', e => {
+    e.stopPropagation();
+    const r = e.currentTarget.getBoundingClientRect(), k = mmScale();
+    const o = mmPos(0, 0);
+    camT = {x: (e.clientX - r.left - o.x) / k, y: (e.clientY - r.top - o.y) / k};
+  });
+  $('tHome').onclick = () => { camT = {x: 0, y: 0}; };
+  document.addEventListener('keydown', e => {
+    if (!treeOpen) return;
+    if (e.code === 'Escape') closeTree();
+    if (e.key.startsWith('Arrow')){ tKeys[e.key] = true; e.preventDefault(); }
+  });
+  document.addEventListener('keyup', e => { tKeys[e.key] = false; });
+})();
+
+function renacer(){
+  const g = gananciaRenacer();
+  if (g < 1) return;
+  const prevRun = S.run;
+  const keep = {total: S.total, clicks: S.clicks, clickEarned: S.clickEarned, goldClicks: S.goldClicks, logros: S.logros, eternas: S.eternas + g, renaces: S.renaces + 1,
+    chips: S.chips + g, skills: S.skills, poderLv: S.poderLv, repLv: S.repLv, saveEvery: S.saveEvery,
+    mute: S.mute, sfxVol: S.sfxVol, musVol: S.musVol, music: S.music, buyN: S.buyN};
+  // Memoria del huerto: conservar las cadenas de cuchillos y manos
+  const keptUps = {};
+  if (sk('memoria')) for (const id in S.up) if (/^[cd]\d+$/.test(id)) keptUps[id] = true;
+  S = Object.assign(newState(), keep);
+  S.up = keptUps;
+  if (sk('veteranos')) S.n.espantapajaros = 10;
+  // Ramas de "empiezas con...": edificios gratis al empezar la vuelta
+  for (const k in FXA) if (k.startsWith('start_')){ const id = k.slice(6); if (id in S.n) S.n[id] += FXA[k]; }
+  if (sk('herencia')){ S.cal = prevRun * (0.01 + fxA('herencia')); S.run = 0; }
+  upKey = '';
+  SND.renacer();
+  toast('Has renacido', 'Ganas ' + fmt(g) + ' semillas eternas. Gástalas en el árbol.');
+  save();
+  updateUI();
+}
+function setMuteIcon(){
+  const b = $('btnMute');
+  b.querySelector('i').textContent = S.mute ? '🔇' : '🔊';
+  b.querySelector('span').textContent = S.mute ? 'Sin sonido' : 'Sonido';
+}
+function toggleMute(){
+  S.mute = !S.mute;
+  setMuteIcon();
+  applyVol();
+  save();
+}
+
+// ================= Interfaz =================
+function updateUI(){
+  rebuildFx();
+  ensureBuildings();
+  $('hCal').textContent = fmt(S.cal) + ' calabaza' + (Math.floor(S.cal) === 1 ? '' : 's');
+  $('hRate').textContent = 'por segundo: ' + fmtR(rate()) + ' · por clic: ' + fmtR(clickValue());
+  $('buffs').innerHTML = S.buffs.map(b => '<span class="buff">' + (b.id === 'frenesi' ? 'Frenesí x' + (sk('frenesi') ? 10 : 7) : 'Furia x10') + ' · ' + Math.ceil(b.left) + ' s</span>').join('');
+  $('btnTree').classList.toggle('has', S.chips > 0 && SKILLS.some(s => skillOpen(s) && (s.rep || !sk(s.id)) && S.chips >= skillCost(s)));
+  // Edificios: se ve el siguiente como "???" y el resto se esconde
+  let shownLocked = false;
+  for (const b of BUILD){
+    const owned = S.n[b.id] > 0, visible = owned || S.total >= b.base * 0.5;
+    const el = b.el;
+    if (!el) continue;
+    if (visible){
+      el.style.display = '';
+      el.classList.remove('mys');
+      refreshIcon(b);
+      const c = bulkCost(b, S.buyN);
+      el.nm.textContent = b.nombre;
+      el.sub.innerHTML = COIN + fmt(c);
+      el.sub.classList.toggle('cara', S.cal < c);
+      el.cnt.textContent = S.n[b.id] || '';
+      el.classList.toggle('no', S.cal < c);
+      el.classList.toggle('ok', S.cal >= c);
+    } else if (!shownLocked){
+      shownLocked = true;
+      el.style.display = '';
+      el.classList.add('mys');
+      el.classList.remove('ok');
+      refreshIcon(b);
+      el.nm.textContent = '???';
+      el.sub.innerHTML = COIN + fmt(bulkCost(b, S.buyN));
+      el.sub.classList.add('cara');
+      el.cnt.textContent = '';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+  renderUps();
+  renderLanes();
+  if (tipFn && tipEl && document.body.contains(tipEl)) $('tip').innerHTML = tipFn();
+  else if (tipFn) hideTip();
+  if (modalKind === 'stats') renderModal();
+}
+
+// ================= Guardado =================
+// Autoguardado: cada S.saveEvery segundos, al comprar, al cambiar de pestaña y al cerrar.
+// Además se guarda una copia de seguridad cada 5 minutos.
+const BACKUP_KEY = KEY + '-copia';
+let backupT = 0, savedFlashT = 0, noSave = false;
+function save(silent){
+  if (noSave) return;
+  S.lastSave = Date.now();
+  try {
+    localStorage.setItem(KEY, JSON.stringify(S));
+    if (!silent) showSaved();
+  } catch (e) { /* sin almacenamiento: el juego sigue */ }
+}
+function saveSoon(){ saveT = Math.max(saveT, (S.saveEvery || 10) - 1.5); }
+function saveBackup(){
+  try { localStorage.setItem(BACKUP_KEY, JSON.stringify(Object.assign({}, S, {lastSave: Date.now(), backupAt: Date.now()}))); } catch (e) { /* sin espacio */ }
+}
+function showSaved(){
+  const el = $('saved');
+  if (!el) return;
+  el.classList.add('show');
+  clearTimeout(savedFlashT);
+  savedFlashT = setTimeout(() => el.classList.remove('show'), 1400);
+}
+function backupInfo(){
+  try {
+    const o = JSON.parse(localStorage.getItem(BACKUP_KEY) || 'null');
+    return o && o.backupAt ? o : null;
+  } catch (e) { return null; }
+}
+function load(){
+  let raw = null;
+  try { raw = localStorage.getItem(KEY); } catch (e) { raw = null; }
+  if (raw){
+    try {
+      const o = JSON.parse(raw);
+      const base = newState();
+      S = Object.assign(base, o);
+      S.n = Object.assign(newState().n, o.n || {});
+      S.up = o.up || {}; S.logros = o.logros || {}; S.buffs = Array.isArray(o.buffs) ? o.buffs : [];
+      S.skills = o.skills || {};
+      S.repLv = o.repLv || {};
+      rebuildFx();
+      if (o.chips === undefined) S.chips = S.eternas;  // partidas antiguas: las semillas ya ganadas se pueden gastar
+      for (let i = 0; i < 100 && ensureBuildings(); i++);
+      // Lo producido mientras no estabas (la mitad hasta 24 h; con Cosecha nocturna, todo hasta 72 h; más con Sueño profundo)
+      const away = Math.min((sk('nocturna') ? 72 : 24) * 3600 + fxA('offline') * 3600, Math.max(0, (Date.now() - (o.lastSave || Date.now())) / 1000));
+      if (away > 30){
+        const v = rate(true) * away * (sk('nocturna') ? 1 : 0.5);
+        if (v >= 1){ gain(v); setTimeout(() => toast('Bienvenido de nuevo', 'Mientras no estabas (' + fmtT(away) + ') cosechaste ' + fmt(v) + ' calabazas.'), 600); }
+      }
+      return;
+    } catch (e) { S = newState(); }
+  }
+  // Traer la partida de la versión anterior de la granja, si existe
+  try {
+    const old = JSON.parse(localStorage.getItem(OLD_KEY) || 'null');
+    if (old){
+      S.cal = +old.cal || 0; S.run = +old.run || 0; S.total = +old.total || 0;
+      S.eternas = +old.eternas || 0; S.renaces = +old.renaces || 0;
+      if (old.n) for (const id in old.n) if (id in S.n) S.n[id] = +old.n[id] || 0;
+      setTimeout(() => toast('Partida recuperada', 'Traje tus calabazas y edificios de la versión anterior.'), 600);
+    }
+  } catch (e) { /* sin partida anterior */ }
+}
+window.addEventListener('pagehide', () => save(true));
+window.addEventListener('beforeunload', () => save(true));
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(true); });
+
+// ================= Arranque =================
+$('btnStats').onclick = () => abrirModal('stats');
+$('btnLog').onclick = () => abrirModal('logros');
+$('btnRen').onclick = () => abrirModal('ren');
+$('btnTree').onclick = () => abrirModal('tree');
+$('btnOpt').onclick = () => abrirModal('opt');
+$('btnMute').onclick = () => { getAC(); toggleMute(); };
+$('modal').addEventListener('click', e => { if (e.target.id === 'modal') cerrarModal(); });
+$('mX').onclick = cerrarModal;
+
+load();
+resize();
+buildStore();
+setMuteIcon();
+document.querySelectorAll('#bulk button').forEach(o => o.classList.toggle('on', +o.dataset.n === S.buyN));
+updateUI();
+nextNews();
+
+let last = performance.now(), uiT = 0, slowT = 0, saveT = 0;
+saveBackup();
+function frame(now){
+  const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
+  last = now;
+  tick(dt);
+  uiT += dt; slowT += dt; saveT += dt; newsT += dt; backupT += dt;
+  if (uiT > 0.2){ uiT = 0; updateUI(); }
+  if (slowT > 1){ slowT = 0; checkLogros(); }
+  if (saveT > (S.saveEvery || 10)){ saveT = 0; save(); }
+  if (backupT > 300){ backupT = 0; saveBackup(); }
+  if (newsT > 10){ newsT = 0; nextNews(); }
+  drawScene(now / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
